@@ -49,7 +49,29 @@ adb install -r "android/app/build/outputs/apk/debug/app-debug.apk"
 - Si aun así se corta, el dashboard mostrará el dispositivo «Desconectado»: eso es el
   OEM matando el servicio, no un bug del stream — repórtalo con marca/modelo/versión.
 
-## 5. Qué reportar de cada prueba
+## 5. Prueba de reinicio
+
+1. Con la **transmisión activa**, reinicia el celular (apagar y encender también vale).
+2. Al desbloquear el equipo debe aparecer la notificación **«El celular se reinició —
+   Toca para reanudar la transmisión»** (si la cámara estaba apagada pero el equipo
+   emparejado, el texto dice «Toca para dejar tu cámara lista de nuevo»).
+3. **Un toque** en la notificación abre la app, arranca el servicio y, si estabas
+   transmitiendo antes del reinicio, enciende la cámara automáticamente. El dashboard
+   debe volver a mostrar «Transmitiendo» en segundos.
+4. Si la notificación no aparece: revisa que el permiso de notificaciones esté
+   concedido y que el canal «Avisos» no esté silenciado (Ajustes → Apps → OneVideo →
+   Notificaciones).
+
+> **Por qué no se reanuda solo, sin tocar nada:** Android (14 y 15) prohíbe que una
+> app inicie por su cuenta, desde segundo plano o al arrancar el sistema, un servicio
+> en primer plano que use la cámara o el micrófono; además, aunque arrancara, el
+> sistema le negaría el acceso a la cámara por la regla de «uso mientras la app está
+> en pantalla». Es una restricción de privacidad del sistema que aplica a todas las
+> apps por igual (no un límite de OneVideo). El máximo permitido es exactamente lo
+> que hace la app: avisarte con una notificación para que un solo toque lo deje todo
+> como estaba.
+
+## 6. Qué reportar de cada prueba
 
 Modelo y Android, red (wifi/datos), minutos de transmisión continua con pantalla
 bloqueada, temperatura máxima vista en telemetría, y si algún control remoto no

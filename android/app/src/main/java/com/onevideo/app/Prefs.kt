@@ -54,6 +54,15 @@ class Prefs(context: Context) {
         get() = sp.getString(KEY_FACING, "back") ?: "back"
         set(value) = sp.edit().putString(KEY_FACING, value).apply()
 
+    /**
+     * true si la cámara quedó transmitiendo en el último encendido/apagado real
+     * (botón local o comando remoto). Tras un reinicio del celular permite ofrecer
+     * «reanudar la transmisión» con un toque desde la notificación de aviso.
+     */
+    var wasStreaming: Boolean
+        get() = sp.getBoolean(KEY_WAS_STREAMING, false)
+        set(value) = sp.edit().putBoolean(KEY_WAS_STREAMING, value).apply()
+
     /** Borra credenciales y ajustes (desemparejar). Conserva el servidor editado. */
     fun clearPairing() {
         sp.edit()
@@ -65,6 +74,7 @@ class Prefs(context: Context) {
             .remove(KEY_FPS)
             .remove(KEY_BITRATE_KBPS)
             .remove(KEY_FACING)
+            .remove(KEY_WAS_STREAMING)
             .apply()
     }
 
@@ -80,5 +90,6 @@ class Prefs(context: Context) {
         private const val KEY_FPS = "fps"
         private const val KEY_BITRATE_KBPS = "bitrate_kbps"
         private const val KEY_FACING = "facing"
+        private const val KEY_WAS_STREAMING = "was_streaming"
     }
 }

@@ -1,5 +1,6 @@
 package com.onevideo.app.stream
 
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -18,6 +19,7 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import com.onevideo.app.BootReceiver
 import com.onevideo.app.MainActivity
 import com.onevideo.app.Prefs
 import com.onevideo.app.R
@@ -103,15 +105,24 @@ class StreamService : Service(), CommandSocket.Listener {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // startForeground inmediato (ventana de 5 s). En un reinicio por START_STICKY
-        // desde background el sistema puede vetar el tipo camera: en ese caso el
-        // servicio se apaga limpio en vez de crashear.
+        // desde background (intent null tras un kill del OEM) el sistema puede vetar
+        // el tipo camera: en ese caso, en vez de crashear o quedar zombi, se publica
+        // la notificación de reanudación (un toque la recupera) y se apaga limpio.
         try {
             startInForeground()
         } catch (e: Exception) {
+            val backgroundVeto = e is SecurityException ||
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e is ForegroundServiceStartNotAllowedException)
             Log.w(TAG, "startForeground rechazado (¿reinicio en background?): ${e.message}")
+            if (backgroundVeto && prefs.isPaired) {
+                BootReceiver.showResumeNotification(this, prefs.wasStreaming)
+            }
             stopSelf()
             return START_NOT_STICKY
         }
+
+        // El FGS ya arrancó: la notificación de reanudación (si quedó alguna) sobra.
+        getSystemService(NotificationManager::class.java).cancel(BootReceiver.NOTIFICATION_ID)
 
         if (intent?.action == ACTION_STOP_SERVICE) {
             runOnWebrtcThread { stopStreamingInternal(notifyStatus = true) }
@@ -124,7 +135,14 @@ class StreamService : Service(), CommandSocket.Listener {
         when (intent?.action) {
             ACTION_CAMERA_ON -> runOnWebrtcThread { startStreamingInternal() }
             ACTION_CAMERA_OFF -> runOnWebrtcThread { stopStreamingInternal(notifyStatus = true) }
-            // ACTION_START o reinicio del sistema (intent null): solo WS + telemetría.
+            else -> if (intent == null && prefs.wasStreaming) {
+                // Reinicio del sistema tras un kill del OEM y este OEM sí permitió el
+                // startForeground: reanudar la cámara que estaba transmitiendo. Si el
+                // acceso while-in-use se deniega, startStreamingInternal lo reporta
+                // como lastError sin crashear.
+                runOnWebrtcThread { startStreamingInternal() }
+            }
+            // ACTION_START: solo WS + telemetría.
         }
 
         mainHandler.removeCallbacks(telemetryTicker)
@@ -320,6 +338,8 @@ class StreamService : Service(), CommandSocket.Listener {
         try {
             publisher.start(config, token, whipUrl)
             acquireWakeLock()
+            // Encendido real de la cámara: recordarlo para reanudar tras un reinicio.
+            prefs.wasStreaming = true
             updateUi { it.copy(cameraOn = true, lastError = null, facing = config.facing) }
             updateNotification(streaming = true)
         } catch (e: Exception) {
@@ -337,6 +357,10 @@ class StreamService : Service(), CommandSocket.Listener {
         if (publisher.isPublishing) {
             publisher.stop()
         }
+        // Solo los apagados reales (botón local, comando remoto, acción Detener)
+        // llegan con notifyStatus=true; el teardown del servicio y restart_stream
+        // no deben borrar la intención de reanudar tras un reinicio.
+        if (notifyStatus) prefs.wasStreaming = false
         releaseWakeLock()
         updateUi { it.copy(cameraOn = false, measuredKbps = null) }
         updateNotification(streaming = false)

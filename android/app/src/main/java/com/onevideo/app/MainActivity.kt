@@ -71,6 +71,16 @@ class MainActivity : AppCompatActivity() {
      */
     private var pendingServiceStart = false
 
+    /**
+     * Intención de cámara del arranque pospuesto ([pendingServiceStart]): si el
+     * sistema vetó un startService(cameraOn = true) (p. ej. toque en la
+     * notificación de reanudación con el proceso aún contado como background),
+     * el reintento de onStart debe reanudar también la cámara, no solo WS y
+     * telemetría. Campo separado de [pendingCameraOn] para no colisionar con el
+     * flujo del permissionsLauncher.
+     */
+    private var pendingServiceCameraOn = false
+
     private val permissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
             val essentialGranted = results.filterKeys { it != Manifest.permission.POST_NOTIFICATIONS }
@@ -94,10 +104,31 @@ class MainActivity : AppCompatActivity() {
 
         if (prefs.isPaired) {
             showControl()
-            ensurePermissionsAndStart(cameraOn = false)
+            // AUTO_RESUME llega desde la notificación del BootReceiver (o desde la
+            // de rescate de StreamService). Solo en el primer onCreate: en una
+            // recreación por rotación el intent viejo no debe reencender nada.
+            val autoResume = savedInstanceState == null && consumeAutoResume(intent)
+            ensurePermissionsAndStart(cameraOn = autoResume && prefs.wasStreaming)
         } else {
             showPairing()
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // launchMode singleTask: si la Activity ya existía, el toque en la
+        // notificación entra por aquí en lugar de onCreate.
+        if (prefs.isPaired && consumeAutoResume(intent)) {
+            ensurePermissionsAndStart(cameraOn = prefs.wasStreaming)
+        }
+    }
+
+    /** Lee y consume el extra AUTO_RESUME para que no se re-procese. */
+    private fun consumeAutoResume(intent: Intent?): Boolean {
+        if (intent?.getBooleanExtra(EXTRA_AUTO_RESUME, false) != true) return false
+        intent.removeExtra(EXTRA_AUTO_RESUME)
+        return true
     }
 
     private fun bindViews() {
@@ -200,7 +231,9 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         if (pendingServiceStart) {
             pendingServiceStart = false
-            ensurePermissionsAndStart(cameraOn = false)
+            val cameraOn = pendingServiceCameraOn
+            pendingServiceCameraOn = false
+            ensurePermissionsAndStart(cameraOn = cameraOn)
         }
     }
 
@@ -210,8 +243,10 @@ class MainActivity : AppCompatActivity() {
             StreamService.start(this, action)
         } catch (e: IllegalStateException) {
             // ForegroundServiceStartNotAllowedException (API 31+): la app quedó en
-            // background en el instante del arranque; reintentar al volver.
+            // background en el instante del arranque; reintentar al volver,
+            // preservando la intención de encender la cámara.
             pendingServiceStart = true
+            pendingServiceCameraOn = cameraOn
         }
     }
 
@@ -317,5 +352,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun showControl() {
         flipper.displayedChild = 1
+    }
+
+    companion object {
+        /** Extra de la notificación de reanudación (BootReceiver / StreamService). */
+        const val EXTRA_AUTO_RESUME = "AUTO_RESUME"
     }
 }

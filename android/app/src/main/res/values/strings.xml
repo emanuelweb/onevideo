@@ -53,4 +53,11 @@
     <string name="notif_connected">Conectado y a la espera de comandos.</string>
     <string name="notif_streaming">Transmitiendo la cámara a la nube.</string>
     <string name="notif_action_stop">Detener</string>
+
+    <!-- Notificación de reanudación tras reinicio (canal «Avisos») -->
+    <string name="notif_channel_avisos_name">Avisos</string>
+    <string name="notif_channel_avisos_description">Avisos importantes, como dejar la cámara lista tras un reinicio del celular</string>
+    <string name="notif_reboot_title">El celular se reinició</string>
+    <string name="notif_resume_ready">Toca para dejar tu cámara lista de nuevo</string>
+    <string name="notif_resume_streaming">Toca para reanudar la transmisión</string>
 </resources>
