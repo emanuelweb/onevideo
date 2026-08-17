@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema oscuro fijo con el branding OneVideo. -->
+    <style name="Theme.OneVideo" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/onevideo_accent</item>
+        <item name="colorOnPrimary">@color/onevideo_on_accent</item>
+        <item name="colorSecondary">@color/onevideo_accent</item>
+        <item name="colorOnSecondary">@color/onevideo_on_accent</item>
+        <item name="android:colorBackground">@color/onevideo_background</item>
+        <item name="colorSurface">@color/onevideo_surface</item>
+        <item name="colorOnSurface">@color/onevideo_text</item>
+        <item name="colorError">@color/onevideo_error</item>
+        <item name="android:statusBarColor">@color/onevideo_background</item>
+        <item name="android:navigationBarColor">@color/onevideo_background</item>
+        <item name="android:windowBackground">@color/onevideo_background</item>
+    </style>
+</resources>

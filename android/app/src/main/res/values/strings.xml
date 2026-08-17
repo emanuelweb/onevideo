@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OneVideo</string>
+    <string name="tagline">La app de vídeo del futuro</string>
+
+    <!-- Emparejamiento -->
+    <string name="pairing_title">Empareja tu dispositivo</string>
+    <string name="pairing_instructions">Crea el dispositivo en el panel de OneVideo e ingresa aquí el código de 8 caracteres.</string>
+    <string name="hint_server">Servidor</string>
+    <string name="hint_code">Código de emparejamiento</string>
+    <string name="btn_pair">Emparejar</string>
+    <string name="error_code_format">Ingresa el código de 8 caracteres que muestra el panel.</string>
+
+    <!-- Control -->
+    <string name="chip_service_on">Servicio: activo</string>
+    <string name="chip_service_off">Servicio: detenido</string>
+    <string name="chip_ws_on">Conexión: en línea</string>
+    <string name="chip_ws_off">Conexión: reconectando…</string>
+    <string name="chip_camera_on">Cámara: transmitiendo</string>
+    <string name="chip_camera_off">Cámara: apagada</string>
+    <string name="btn_start_streaming">Transmitir</string>
+    <string name="btn_stop_streaming">Detener</string>
+    <string name="streaming_badge">Transmitiendo a la nube ✓</string>
+    <string name="lock_screen_hint">Puedes bloquear la pantalla: la transmisión continúa.</string>
+    <string name="btn_battery">Ignorar optimización de batería</string>
+    <string name="btn_battery_done">Optimización de batería ya ignorada ✓</string>
+    <string name="btn_unpair">Desemparejar</string>
+    <string name="facing_back">Cámara trasera</string>
+    <string name="facing_front">Cámara frontal</string>
+
+    <!-- Telemetría -->
+    <string name="telemetry_battery">Batería %1$d%%</string>
+    <string name="telemetry_temp">%1$.1f °C</string>
+    <string name="telemetry_network">Red: %1$s</string>
+    <string name="telemetry_bitrate">%1$d kbps</string>
+    <string name="telemetry_empty">Sin datos de telemetría todavía.</string>
+
+    <!-- Desemparejar -->
+    <string name="unpair_title">Desemparejar dispositivo</string>
+    <string name="unpair_message">Se detendrá la transmisión y se borrarán las credenciales de este teléfono. Podrás volver a emparejarlo con un código nuevo.</string>
+    <string name="unpair_confirm">Desemparejar</string>
+    <string name="unpair_cancel">Cancelar</string>
+
+    <!-- Errores -->
+    <string name="error_permissions">Se necesitan los permisos de cámara y micrófono para transmitir.</string>
+    <string name="error_not_paired">El dispositivo no está emparejado.</string>
+    <string name="error_stream_generic">No se pudo iniciar la transmisión.</string>
+    <string name="error_battery_settings">No se pudo abrir la configuración de batería en este dispositivo.</string>
+
+    <!-- Notificación -->
+    <string name="notif_channel_name">Transmisión</string>
+    <string name="notif_channel_description">Estado de la transmisión de cámara en curso</string>
+    <string name="notif_connected">Conectado y a la espera de comandos.</string>
+    <string name="notif_streaming">Transmitiendo la cámara a la nube.</string>
+    <string name="notif_action_stop">Detener</string>
+</resources>

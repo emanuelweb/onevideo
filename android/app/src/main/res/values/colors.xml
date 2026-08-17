@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="onevideo_background">#0B0D14</color>
+    <color name="onevideo_surface">#151827</color>
+    <color name="onevideo_accent">#7C6CF0</color>
+    <color name="onevideo_on_accent">#FFFFFF</color>
+    <color name="onevideo_text">#F2F3F8</color>
+    <color name="onevideo_text_secondary">#9AA0B5</color>
+    <color name="onevideo_error">#F06C6C</color>
+    <color name="onevideo_success">#5DD39E</color>
+</resources>
