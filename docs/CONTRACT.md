@@ -51,6 +51,9 @@ CORS_ORIGINS=https://app.onevideo.example.com
 MEDIAMTX_API_URL=http://mediamtx:9997
 MEDIAMTX_AUTH_SECRET=cambiame-secreto-interno   # secreto compartido MediaMTX -> API (hook interno de auth)
 STREAM_PUBLIC_URL=https://stream.onevideo.example.com
+SUPERADMIN_EMAILS=                # correos (separados por comas) habilitados para el bootstrap de super-admin
+SUPERADMIN_BOOTSTRAP_TOKEN=       # secreto que además hay que enviar en el bootstrap (vacío = autoservicio apagado)
+
 VITE_API_URL=https://api.onevideo.example.com
 VITE_STREAM_URL=https://stream.onevideo.example.com
 ```
@@ -73,11 +76,14 @@ Autenticación de usuario: `Authorization: Bearer <jwt>`. Errores: JSON `{"detai
 ### Auth
 | Método | Ruta | Body | Respuesta 200 |
 |---|---|---|---|
-| POST | `/auth/register` | `{email, password, name}` | `{access_token, token_type:"bearer", user}` |
-| POST | `/auth/login` | `{email, password}` | igual que register |
+| POST | `/auth/register` | `{email, password, name, bootstrap_token?}` | `{access_token, token_type:"bearer", user}` |
+| POST | `/auth/login` | `{email, password, bootstrap_token?}` | igual que register |
+
+`bootstrap_token` es opcional y solo interviene en el bootstrap del primer super-admin
+(ver más abajo); la UI nunca lo envía.
 | GET | `/auth/me` | — | `User` |
 
-`User = {id, email, name, plan: PlanPublic, created_at}`
+`User = {id, email, name, plan: PlanPublic, is_superadmin: bool, created_at}`
 
 ### Planes y uso
 | GET | `/plans` | público | `[PlanPublic]` |
@@ -111,6 +117,76 @@ Command types: "camera_on" | "camera_off" | "switch_camera" | "set_quality" | "t
 | POST | `/pairing/claim` | `{code, platform:"android", model}` | `{device_id, device_token, whip_url, ws_url}` |
 
 `code`: 8 caracteres A-Z0-9, expira a los 15 min, un solo uso. `device_token`: opaco, 43 chars urlsafe, se guarda **hasheado** (sha256) en DB.
+
+### Administración (auth + `is_superadmin`)
+
+Todas responden **403** `{"detail": "Necesitas permisos de administrador."}` a un usuario normal.
+
+| Método | Ruta | Body | Respuesta |
+|---|---|---|---|
+| GET | `/admin/stats` | — | `AdminStats` |
+| GET | `/admin/users?search=&limit=50&offset=0` | — | `{total: int, items: [AdminUser]}` |
+| GET | `/admin/users/{user_id}` | — | `AdminUser` |
+| POST | `/admin/users/{user_id}/plan` | `{plan_code, expires_at?: datetime\|null, note?: str}` | `AdminUser` |
+| PATCH | `/admin/users/{user_id}` | `{is_active?: bool, is_superadmin?: bool}` | `AdminUser` |
+| DELETE | `/admin/users/{user_id}` | — | 204 |
+| GET | `/admin/users/{user_id}/grants` | — | `[PlanGrantPublic]` |
+
+```
+AdminUser = {id, email, name, is_active, is_superadmin, created_at,
+             plan: PlanPublic, plan_source, plan_expires_at,
+             devices_count: int, hours_used_month: float}
+AdminStats = {users_total, users_active, devices_total, devices_streaming,
+              hours_this_month: float, users_by_plan: [{plan_code, plan_name, count}]}
+PlanGrantPublic = {id, plan_code, plan_name, source, granted_by_email: str|null,
+                   expires_at, note, created_at}
+```
+
+Reglas:
+- `search` filtra por correo o nombre (parcial, case-insensitive); listado ordenado por
+  `created_at` descendente; `limit` 1..200, `offset` >= 0.
+- `POST /plan` escribe **siempre** una fila en `plan_grants` (`source='admin'`,
+  `granted_by` = admin actual) y actualiza `plan_id`, `plan_source='admin'` y `plan_expires_at`
+  (`expires_at` ausente/`null` = plan sin vencimiento).
+- `plan_code` inexistente → **404** "Plan no encontrado."; `expires_at` en el pasado → **422**
+  "La fecha de vencimiento debe ser futura."; usuario inexistente → **404** "Usuario no encontrado.".
+- Anti-autobloqueo (**409**): el admin no puede quitarse `is_superadmin`
+  ("No puedes quitarte a ti mismo los permisos de administrador."), ni desactivarse
+  ("No puedes desactivar tu propia cuenta."), ni borrarse ("No puedes eliminar tu propia cuenta.").
+
+- Los cambios de `is_superadmin`/`is_active` y el borrado de cuentas quedan en el log estructurado
+  `onevideo.audit` (admin, cuenta afectada, campo, valor anterior y nuevo). Las asignaciones de
+  plan siguen auditándose en la tabla `plan_grants`.
+- Al bajar de plan (por admin o por vencimiento) se recorta también la calidad guardada en
+  `devices.settings` y se envía `set_quality` a los dispositivos conectados: el enforcement de
+  calidad es cooperativo, así que sin ese recorte el celular seguiría publicando en 1080p60.
+- `PATCH is_active=false` y `DELETE` cierran los WebSocket vivos del usuario (igual que
+  `DELETE /devices/{id}`), para no dejar un stream huérfano publicando.
+
+**Bootstrap del primer super-admin**: hacen falta **dos** variables de entorno y un envío
+explícito del secreto; el correo por sí solo no promueve a nadie.
+
+1. `SUPERADMIN_EMAILS`: correos (separados por comas, case-insensitive) habilitados.
+2. `SUPERADMIN_BOOTSTRAP_TOKEN`: secreto que hay que mandar en el campo opcional
+   `bootstrap_token` del cuerpo de `/auth/register` o `/auth/login`. Vacío = autoservicio apagado.
+
+```
+curl -X POST https://api.${DOMAIN}/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"jefa@ejemplo.com","password":"...","bootstrap_token":"<SUPERADMIN_BOOTSTRAP_TOKEN>"}'
+```
+
+Comparar solo la cadena de correo sería una escalada de privilegios: el correo del dueño suele ser
+público, así que quien se adelantara a registrarlo quedaría como administrador con acceso total al
+panel. El secreto solo lo conoce quien edita las variables del despliegue, que es justo quien debe
+poder crear al primer administrador; la UI no lo pide en ningún formulario.
+
+El bootstrap actúa **una sola vez por cuenta** (`users.superadmin_bootstrapped_at`): tanto la
+promoción automática como cualquier cambio manual del rol (panel o CLI) cierran esa puerta, de modo
+que **una revocación no se deshace sola en el siguiente inicio de sesión**.
+
+Alternativa manual: `docker exec <contenedor-api> python scripts/manage.py promote correo@ejemplo.com`
+(subcomandos `promote`, `demote`, `list-admins`).
 
 ### Interno (solo red Docker — lo llama MediaMTX)
 | POST | `/internal/mediamtx/auth?secret=<MEDIAMTX_AUTH_SECRET>` | payload de MediaMTX | 200 si autorizado, 401 si no |
@@ -147,7 +223,13 @@ plans:            id PK, code UNIQUE, name, price_usd_month NUMERIC(6,2), max_de
                   max_resolution TEXT, max_fps INT, monthly_hours INT NULL (NULL = ilimitado),
                   features JSONB, sort_order INT
 users:            id UUID PK, email UNIQUE (citext o lower-index), password_hash, name,
-                  plan_id FK->plans, is_active BOOL, created_at
+                  plan_id FK->plans, plan_source TEXT NOT NULL DEFAULT 'signup',
+                  plan_expires_at TIMESTAMPTZ NULL, is_active BOOL,
+                  is_superadmin BOOL NOT NULL DEFAULT false,
+                  superadmin_bootstrapped_at TIMESTAMPTZ NULL, created_at
+plan_grants:      id BIGSERIAL PK, user_id FK->users ON DELETE CASCADE (index),
+                  plan_id FK->plans, granted_by FK->users ON DELETE SET NULL NULL,
+                  source TEXT NOT NULL, expires_at TIMESTAMPTZ NULL, note TEXT NULL, created_at
 devices:          id UUID PK, user_id FK, name, platform, model, device_token_hash TEXT NULL,
                   view_token TEXT, camera_on BOOL, status TEXT, last_seen_at, settings JSONB, created_at
 pairing_codes:    code PK, device_id FK, expires_at, used_at NULL
@@ -171,7 +253,8 @@ con `source != null` ⇒ sesión abierta; abre/cierra `stream_sessions` según c
 ```
 / (raíz del repo)
   docker-compose.yml, .env.example, README.md, .gitignore, .dockerignore
-  backend/   Dockerfile, requirements.txt, alembic.ini, alembic/, app/, tests/
+  backend/   Dockerfile, requirements.txt, alembic.ini, alembic/, app/, scripts/, tests/
+    scripts/manage.py  (CLI: promote / demote / list-admins)
     app/main.py, config.py, db.py, security.py, deps.py
     app/models/*.py  app/schemas/*.py  app/api/v1/*.py  app/services/*.py
   frontend/  Dockerfile, nginx.conf, package.json, vite.config.ts, index.html, src/
@@ -201,6 +284,15 @@ copiar), `/app/guia-obs` (guía paso a paso OBS/Kick/Twitch), `/app/cuenta` (pla
   plan; el server no transcodifica (MVP). Documentarlo donde aplique.
 - Los tokens de dispositivo y view tokens se generan con `secrets.token_urlsafe(32)`.
 - El límite de horas se aplica en el auth hook de publish (si excedido → 401) y se muestra en `/usage`.
+- **El plan activo es dato propio del usuario** (`plan_id` + `plan_source` + `plan_expires_at`): la
+  lógica de límites nunca depende de quién lo otorgó. Hoy lo escribe `/admin`; mañana un webhook de
+  Stripe/MercadoPago escribirá el mismo estado con `plan_source='stripe'|'mercadopago'`. Antes de
+  conectar el primer webhook hay que darle a `plan_grants` una clave de idempotencia
+  (`external_id` + `UNIQUE(source, external_id)`): ver ROADMAP §Fase 3.
+- **Vencimiento con degradación perezosa**: `services.plans.resolve_effective_plan(db, user)` baja al
+  plan `free` (con `plan_source='signup'`, `plan_expires_at=NULL`) cuando la fecha ya pasó. Se invoca
+  en `deps.get_current_user()` (toda la API autenticada) y en el hook `action == "publish"` de
+  `/internal/mediamtx/auth` (publicación del celular). El resto del código usa `user.plan` sin cambios.
 - Passwords con bcrypt (cost 12). JWT HS256 con `SECRET_KEY`, claim `sub` = user id.
 - CORS: solo `CORS_ORIGINS`.
 - Todo texto visible para usuarios finales: español neutro LATAM.

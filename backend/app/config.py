@@ -16,10 +16,21 @@ class Settings(BaseSettings):
     stream_public_url: str = "http://localhost:8889"
     usage_tracker_enabled: bool = True
     usage_tracker_interval_seconds: int = 30
+    # Correos separados por comas habilitados para el bootstrap del panel de administración.
+    superadmin_emails: str = ""
+    # Secreto de un solo uso que además hay que enviar en el registro o el inicio de
+    # sesión para que el bootstrap promueva la cuenta. Vacío = autoservicio apagado
+    # (solo queda el CLI `scripts/manage.py promote`). Sin este secreto, cualquiera
+    # que se adelante a registrar un correo de la lista se volvería administrador.
+    superadmin_bootstrap_token: str = ""
 
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def superadmin_emails_list(self) -> list[str]:
+        return [email.strip().lower() for email in self.superadmin_emails.split(",") if email.strip()]
 
 
 settings = Settings()

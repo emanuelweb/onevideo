@@ -31,6 +31,11 @@ export function AppLayout() {
           <NavLink to="/app/cuenta" className={navClass}>
             Cuenta
           </NavLink>
+          {user?.is_superadmin === true && (
+            <NavLink to="/app/admin" className={navClass}>
+              Administración
+            </NavLink>
+          )}
         </nav>
         <div className="sidebar-footer">
           {user && (

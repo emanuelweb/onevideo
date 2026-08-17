@@ -1192,6 +1192,243 @@ code {
   background: linear-gradient(120deg, rgba(139, 92, 246, 0.4), rgba(34, 211, 238, 0.4));
 }
 
+/* ---------- Administración ---------- */
+
+.admin-section {
+  margin-bottom: 1.2rem;
+}
+
+.admin-chips-title {
+  margin: 1rem 0 0.5rem;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-3);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.chip-count {
+  color: var(--text);
+}
+
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.admin-search {
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.table {
+  width: 100%;
+  min-width: 940px;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.table th,
+.table td {
+  padding: 0.7rem 0.8rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: rgba(139, 92, 246, 0.06);
+}
+
+.table-empty {
+  padding: 2rem 0.8rem;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.cell-strong {
+  font-weight: 600;
+}
+
+.cell-note {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--text-faint);
+}
+
+/* Vencimiento ya cumplido: el backend lo degradará en cuanto esa cuenta vuelva. */
+.cell-note-warn {
+  color: var(--warning);
+}
+
+.cell-nowrap {
+  white-space: nowrap;
+}
+
+.email-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.08rem 0.5rem;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-admin {
+  color: var(--violet);
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(139, 92, 246, 0.12);
+}
+
+.badge-self {
+  color: var(--cyan);
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.1);
+}
+
+.state-active {
+  color: var(--success);
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.state-inactive {
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.plan-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 200px;
+}
+
+.select-sm {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.85rem;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+/* Los botones deshabilitados no muestran su propio title en varios navegadores:
+   el envoltorio lo hace visible al pasar el mouse. */
+.action-hint {
+  display: inline-flex;
+  cursor: not-allowed;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.pagination-info {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.admin-legend {
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+
+.danger-text {
+  color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.grant-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.grant-item {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+}
+
+.grant-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+
+.grant-meta {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.grant-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.83rem;
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 960px) {
@@ -1238,5 +1475,13 @@ code {
 
   .public-header {
     padding: 0.9rem 1rem;
+  }
+
+  .admin-toolbar {
+    align-items: stretch;
+  }
+
+  .admin-search {
+    max-width: none;
   }
 }

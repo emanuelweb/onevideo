@@ -21,14 +21,17 @@ from app.schemas import (
     StreamInfo,
 )
 from app.security import generate_opaque_token
-from app.services.devices import default_settings_for_plan, device_public, notify_consoles
+from app.services.devices import (
+    RESOLUTION_RANK,
+    default_settings_for_plan,
+    device_public,
+    notify_consoles,
+)
 from app.services.hub import hub
 from app.services.pairing import issue_pairing_code
 from app.services.streaming import build_stream_info
 
 router = APIRouter()
-
-_RESOLUTION_RANK = {"720p": 720, "1080p": 1080}
 
 
 def _get_owned_device(db: Session, user: User, device_id: uuid.UUID) -> Device:
@@ -40,7 +43,7 @@ def _get_owned_device(db: Session, user: User, device_id: uuid.UUID) -> Device:
 
 def _validate_quality_against_plan(resolution: str, fps: int, plan: Plan) -> None:
     if (
-        _RESOLUTION_RANK.get(resolution, 0) > _RESOLUTION_RANK.get(plan.max_resolution, 0)
+        RESOLUTION_RANK.get(resolution, 0) > RESOLUTION_RANK.get(plan.max_resolution, 0)
         or fps > plan.max_fps
     ):
         raise HTTPException(

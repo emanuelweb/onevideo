@@ -93,6 +93,8 @@ CORS_ORIGINS=https://app.onevideo.example.com
 MEDIAMTX_API_URL=http://mediamtx:9997
 MEDIAMTX_AUTH_SECRET=<32 caracteres aleatorios>
 STREAM_PUBLIC_URL=https://stream.onevideo.example.com
+SUPERADMIN_EMAILS=tu-correo@ejemplo.com
+SUPERADMIN_BOOTSTRAP_TOKEN=<32 caracteres aleatorios>
 VITE_API_URL=https://api.onevideo.example.com
 VITE_STREAM_URL=https://stream.onevideo.example.com
 ```
@@ -107,6 +109,22 @@ Consejos:
   vacío en producción**: sin él, el hook `/internal/mediamtx/auth` cae al modo de desarrollo
   y solo verifica que la IP del cliente sea privada, un criterio falsificable a través del
   reverse proxy.
+- `SUPERADMIN_EMAILS` + `SUPERADMIN_BOOTSTRAP_TOKEN` crean al primer administrador sin entrar
+  al contenedor. Hacen falta las dos: el correo habilita la cuenta y el secreto
+  (`openssl rand -hex 16`) prueba que quien pide el rol es quien configura el despliegue.
+  Con el token vacío el autoservicio queda apagado. Una vez desplegado, basta con un
+  inicio de sesión que incluya el secreto:
+
+  ```bash
+  curl -X POST https://api.onevideo.example.com/api/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email":"tu-correo@ejemplo.com","password":"tu-contraseña","bootstrap_token":"<token>"}'
+  ```
+
+  Después conviene vaciar ambas variables. Alternativa con acceso al contenedor:
+  `docker exec <contenedor-api> python scripts/manage.py promote tu-correo@ejemplo.com`.
+  El rol se decide una sola vez por cuenta: si más adelante lo quitas desde el panel, la
+  variable de entorno ya no vuelve a otorgarlo.
 - `PUBLIC_IP` es crítica: MediaMTX la anuncia en los candidatos ICE
   (`MTX_WEBRTCADDITIONALHOSTS`). Si está mal, el WebRTC conecta la señalización pero
   nunca llega el vídeo.

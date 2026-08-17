@@ -1,4 +1,9 @@
 import type {
+  AdminPlanAssign,
+  AdminStats,
+  AdminUser,
+  AdminUserList,
+  AdminUserUpdate,
   AuthResponse,
   CommandResult,
   CommandType,
@@ -6,6 +11,7 @@ import type {
   DeviceSettings,
   DeviceWithPairing,
   PairingCodeInfo,
+  PlanGrant,
   PlanPublic,
   StreamInfo,
   Usage,
@@ -102,6 +108,17 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return (await response.json()) as T;
 }
 
+/** Arma el query string omitiendo los parámetros vacíos. */
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === "") continue;
+    query.set(key, String(value));
+  }
+  const serialized = query.toString();
+  return serialized === "" ? "" : `?${serialized}`;
+}
+
 export const api = {
   // Auth
   register: (data: { email: string; password: string; name: string }) =>
@@ -132,4 +149,16 @@ export const api = {
   streamInfo: (id: string) => request<StreamInfo>(`/devices/${id}/stream`),
   rotateViewToken: (id: string) =>
     request<StreamInfo>(`/devices/${id}/view-token/rotate`, { method: "POST" }),
+
+  // Administración (requiere is_superadmin)
+  adminStats: () => request<AdminStats>("/admin/stats"),
+  adminUsers: (params: { search?: string; limit?: number; offset?: number } = {}) =>
+    request<AdminUserList>(`/admin/users${buildQuery({ ...params })}`),
+  adminUser: (id: string) => request<AdminUser>(`/admin/users/${id}`),
+  adminAssignPlan: (id: string, data: AdminPlanAssign) =>
+    request<AdminUser>(`/admin/users/${id}/plan`, { method: "POST", body: data }),
+  adminUpdateUser: (id: string, data: AdminUserUpdate) =>
+    request<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: data }),
+  adminDeleteUser: (id: string) => request<void>(`/admin/users/${id}`, { method: "DELETE" }),
+  adminUserGrants: (id: string) => request<PlanGrant[]>(`/admin/users/${id}/grants`),
 };

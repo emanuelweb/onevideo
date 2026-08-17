@@ -1,6 +1,7 @@
 """Punto de entrada de la API de OneVideo."""
 import asyncio
 import contextlib
+import logging
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -10,6 +11,15 @@ from fastapi.responses import JSONResponse
 from app.api.v1 import api_router
 from app.config import settings
 from app.services.tracker import usage_tracker
+
+# Uvicorn solo configura sus propios loggers: sin un handler en la raíz, los mensajes
+# de `onevideo.*` (tracker y, sobre todo, la auditoría del panel de administración)
+# se perderían por debajo de WARNING. Van a la salida estándar, que es lo que recoge
+# `docker logs` en el VPS.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
 
 
 @contextlib.asynccontextmanager

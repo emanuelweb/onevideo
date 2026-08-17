@@ -36,17 +36,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const result = await api.login({ email, password });
-    setToken(result.access_token);
-    setUser(result.user);
+  /**
+   * `/auth/login` y `/auth/register` responden con el usuario tal como está en la
+   * base; `/auth/me` pasa por `get_current_user`, que además aplica la degradación
+   * perezosa del plan vencido. Se prefiere esa respuesta para que la sesión no
+   * arranque mostrando un plan que el backend ya considera caducado.
+   */
+  const resolveUser = useCallback(async (fallback: User): Promise<User> => {
+    try {
+      return await api.me();
+    } catch {
+      return fallback;
+    }
   }, []);
 
-  const register = useCallback(async (name: string, email: string, password: string) => {
-    const result = await api.register({ email, password, name });
-    setToken(result.access_token);
-    setUser(result.user);
-  }, []);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const result = await api.login({ email, password });
+      setToken(result.access_token);
+      setUser(await resolveUser(result.user));
+    },
+    [resolveUser],
+  );
+
+  const register = useCallback(
+    async (name: string, email: string, password: string) => {
+      const result = await api.register({ email, password, name });
+      setToken(result.access_token);
+      setUser(await resolveUser(result.user));
+    },
+    [resolveUser],
+  );
 
   const logout = useCallback(() => {
     clearToken();

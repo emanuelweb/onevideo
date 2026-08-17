@@ -74,6 +74,13 @@ existente vía auth hook, facturas/recibos por email.
    básica: lo que dice la pasarela == lo que dice la DB, verificado por job diario.
 4. Primeros 50 clientes pagos sin ticket de soporte de facturación irresoluble.
 
+**Pendiente técnico ya identificado**: `plan_grants` no tiene clave de idempotencia. Antes de
+conectar el primer webhook hay que añadir en una migración `external_id TEXT NULL` con
+`UniqueConstraint(source, external_id)` y hacer `INSERT ... ON CONFLICT DO NOTHING`; si no, los
+reintentos que Stripe/MercadoPago hacen por diseño ante cualquier timeout duplicarán filas de
+auditoría. El resto del diseño ya está listo: el plan activo es dato propio del usuario
+(`plan_id` + `plan_source` + `plan_expires_at`) y `granted_by` admite NULL para el caso automático.
+
 ---
 
 ## Fase 4 — App iOS

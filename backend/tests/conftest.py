@@ -17,10 +17,14 @@ os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
 # Sin secreto por defecto en tests (un .env local podría definirlo y filtrar
 # configuración de producción al hook interno de MediaMTX).
 os.environ["MEDIAMTX_AUTH_SECRET"] = ""
+# El bootstrap de super-admin se configura test a test (monkeypatch): se parte de
+# la configuración apagada para no depender de un .env local.
+os.environ["SUPERADMIN_EMAILS"] = ""
+os.environ["SUPERADMIN_BOOTSTRAP_TOKEN"] = ""
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -83,6 +87,16 @@ def session_factory():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+
+    # SQLite ignora las claves foráneas salvo que se pidan explícitamente en cada
+    # conexión. Sin esto los ON DELETE CASCADE / SET NULL no se ejercitan y un error
+    # en las cascadas pasaría inadvertido en los tests.
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     Base.metadata.create_all(engine)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     with factory() as session:

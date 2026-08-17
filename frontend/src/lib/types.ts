@@ -20,6 +20,7 @@ export interface User {
   email: string;
   name: string;
   plan: PlanPublic;
+  is_superadmin: boolean;
   created_at: string;
 }
 
@@ -99,4 +100,66 @@ export interface Usage {
   hours_limit: number | null;
   devices_used: number;
   devices_limit: number;
+}
+
+// ---------- Administración (docs/CONTRACT.md §4, backend/app/schemas/admin.py) ----------
+
+/** Quién otorgó el plan activo. Hoy lo escribe el admin; mañana una pasarela de pago. */
+export type PlanSource = "signup" | "admin" | "stripe" | "mercadopago";
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  is_active: boolean;
+  is_superadmin: boolean;
+  created_at: string;
+  plan: PlanPublic;
+  plan_source: PlanSource;
+  plan_expires_at: string | null;
+  devices_count: number;
+  hours_used_month: number;
+}
+
+export interface AdminUserList {
+  total: number;
+  items: AdminUser[];
+}
+
+export interface AdminPlanCount {
+  plan_code: string;
+  plan_name: string;
+  count: number;
+}
+
+export interface AdminStats {
+  users_total: number;
+  users_active: number;
+  devices_total: number;
+  devices_streaming: number;
+  hours_this_month: number;
+  users_by_plan: AdminPlanCount[];
+}
+
+export interface PlanGrant {
+  id: number;
+  plan_code: string;
+  plan_name: string;
+  source: PlanSource;
+  granted_by_email: string | null;
+  expires_at: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface AdminPlanAssign {
+  plan_code: string;
+  /** null o ausente = plan sin vencimiento. */
+  expires_at?: string | null;
+  note?: string | null;
+}
+
+export interface AdminUserUpdate {
+  is_active?: boolean;
+  is_superadmin?: boolean;
 }

@@ -11,6 +11,7 @@ from app.db import get_db
 from app.models import Device
 from app.schemas import MediaMTXAuthPayload
 from app.security import constant_time_equals, sha256_hex
+from app.services.plans import resolve_effective_plan
 from app.services.usage import has_hours_available
 from app.utils import is_internal_ip
 
@@ -104,6 +105,9 @@ def mediamtx_auth(
         owner = device.user
         if owner is None or not owner.is_active:
             raise _unauthorized("Usuario inactivo.")
+        # La publicación del celular no pasa por get_current_user: se aplica aquí
+        # la degradación perezosa antes de medir las horas contra el plan.
+        resolve_effective_plan(db, owner)
         if not has_hours_available(db, owner):
             raise _unauthorized("Alcanzaste el límite de horas de tu plan este mes.")
         return {"detail": "ok"}

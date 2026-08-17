@@ -51,6 +51,18 @@ export function facingLabel(facing: string | null | undefined): string {
   return facing != null && facing !== "" ? facing : "—";
 }
 
+/** Origen del plan activo: 'signup' | 'admin' | 'stripe' | 'mercadopago'. */
+export function planSourceLabel(source: string | null | undefined): string {
+  if (source == null || source === "") return "—";
+  const labels: Record<string, string> = {
+    signup: "Registro",
+    admin: "Asignado por administración",
+    stripe: "Stripe",
+    mercadopago: "MercadoPago",
+  };
+  return labels[source.toLowerCase()] ?? source;
+}
+
 export function networkLabel(network: string | null | undefined): string {
   if (network == null || network === "") return "—";
   const labels: Record<string, string> = {

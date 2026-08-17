@@ -1,8 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
+import { RequireSuperadmin } from "./auth/RequireSuperadmin";
 import { AppLayout } from "./components/AppLayout";
 import AccountPage from "./pages/AccountPage";
+import AdminPage from "./pages/AdminPage";
 import DashboardPage from "./pages/DashboardPage";
 import DeviceDetailPage from "./pages/DeviceDetailPage";
 import LoginPage from "./pages/LoginPage";
@@ -32,6 +34,14 @@ export default function App() {
             <Route path="dispositivos/:id" element={<DeviceDetailPage />} />
             <Route path="guia-obs" element={<ObsGuidePage />} />
             <Route path="cuenta" element={<AccountPage />} />
+            <Route
+              path="admin"
+              element={
+                <RequireSuperadmin>
+                  <AdminPage />
+                </RequireSuperadmin>
+              }
+            />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

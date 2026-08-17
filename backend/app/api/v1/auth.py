@@ -7,6 +7,7 @@ from app.deps import get_current_user
 from app.models import Plan, User
 from app.schemas import LoginRequest, RegisterRequest, TokenResponse, UserPublic
 from app.security import create_access_token, hash_password, verify_password
+from app.services.admin import ensure_bootstrap_superadmin
 
 router = APIRouter()
 
@@ -36,6 +37,9 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)) -> TokenRespo
     db.add(user)
     db.commit()
     db.refresh(user)
+    # Solo promueve si además llega el secreto de bootstrap: el correo por sí solo
+    # no prueba nada (ver app/services/admin.py).
+    ensure_bootstrap_superadmin(db, user, body.bootstrap_token)
     return _token_response(user)
 
 
@@ -47,6 +51,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
         raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos.")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="La cuenta está desactivada.")
+    ensure_bootstrap_superadmin(db, user, body.bootstrap_token)
     return _token_response(user)
 
 
