@@ -248,4 +248,5 @@ servicios; el volumen `db-data` conserva los datos entre despliegues.
 | `502 Bad Gateway` | Servicio aún arrancando o caído | Revisa Logs del servicio en Dokploy |
 | WHIP devuelve `401` | `device_token` inválido o límite de horas del plan agotado | Regenera emparejamiento; revisa `/api/v1/usage` |
 | Señalización OK pero sin vídeo | `PUBLIC_IP` incorrecta o UDP 8189 cerrado | Corrige `.env` y firewall; redespliega |
+| WHIP crea la sesión y luego da `Connection refused` | MediaMTX está anunciando IPs privadas de Docker como candidatos ICE | Verifica `webrtcIPsFromInterfaces: no` en `infra/mediamtx.yml`; los clientes simples solo prueban el primer candidato |
 | Frontend apunta a URLs viejas | Cambiaste `VITE_*` sin rebuild | Redespliega (son build args) |

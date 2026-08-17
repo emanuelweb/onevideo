@@ -48,10 +48,15 @@ webrtcAllowOrigin: '*'
 # Puerto UDP único para ICE. Debe publicarse 8189/udp en el host
 # y abrirse en el firewall del VPS.
 webrtcLocalUDPAddress: :8189
-webrtcIPsFromInterfaces: yes
-# Hosts/IPs anunciados en los candidatos ICE hacia los clientes.
-# En docker-compose este valor se sobrescribe con la variable de entorno
-# MTX_WEBRTCADDITIONALHOSTS=${PUBLIC_IP}; lo de abajo es solo un placeholder.
+# NO anunciar las IPs de las interfaces del contenedor: dentro de Docker son
+# direcciones privadas (172.x / 10.x) inalcanzables desde internet. Si se anuncian,
+# encabezan la lista de candidatos ICE y los clientes WebRTC minimalistas —como el
+# publicador WHIP de FFmpeg o algunas implementaciones móviles— intentan solo el
+# primero y fallan con "connection refused" sin llegar a probar la IP pública.
+webrtcIPsFromInterfaces: no
+# Único host anunciado en los candidatos ICE: la IP pública del VPS.
+# docker-compose lo sobrescribe con MTX_WEBRTCADDITIONALHOSTS=${PUBLIC_IP},
+# por eso PUBLIC_IP es obligatoria: sin ella no habría ningún candidato válido.
 webrtcAdditionalHosts: [203.0.113.10]
 
 ###############################################
