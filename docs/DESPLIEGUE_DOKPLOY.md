@@ -240,6 +240,37 @@ Flujo normal: haz `git push` a `main` y en Dokploy pulsa **Deploy** (o activa
 vía webhook del proveedor Git). Dokploy reconstruye solo lo que cambió y reinicia los
 servicios; el volumen `db-data` conserva los datos entre despliegues.
 
+> **Cuidado con `infra/mediamtx.yml`.** Ese archivo entra al contenedor como bind mount,
+> no como parte de la imagen. Si lo editas, `docker compose up` no ve ningún cambio en la
+> *definición* del servicio y **no recrea el contenedor**: MediaMTX sigue corriendo con la
+> configuración que leyó al arrancar, y el despliegue parece exitoso sin haber aplicado
+> nada. Después de tocar ese archivo hay que reiniciar el contenedor `mediamtx`
+> explícitamente (botón *Restart* en Dokploy, o `docker restart <contenedor>`).
+
+## 11.1 Despliegue temporal con dominios de Traefik
+
+Para probar sin dominio propio, Dokploy genera hosts del tipo
+`<nombre>-<hash>-<ip-con-guiones>.traefik.me`, que resuelven solos a la IP del VPS.
+
+Van en **HTTP, no HTTPS**, y es a propósito: `traefik.me` no está en la Public Suffix
+List, así que Let's Encrypt lo trata como un único dominio registrado y su límite de 50
+certificados por semana lo comparten todos los usuarios de Dokploy del mundo. Pedir un
+certificado ahí falla. Mientras uses traefik.me, deja los tres dominios en HTTP para que
+no haya *mixed content* entre el dashboard, el API y el stream.
+
+Esto sirve para validar el stack, pero tiene dos límites que obligan a un dominio propio
+antes de la fase 2:
+
+- **La app Android bloquea tráfico en claro** por defecto (`cleartextTrafficPermitted`),
+  así que no podrá publicar contra un endpoint HTTP.
+- Sin HTTPS no hay contexto seguro en el navegador para funciones futuras de captura.
+
+Cuando tengas el dominio real: cambia los tres hosts en la pestaña **Domains** a
+`app/api/stream.tudominio.com` con `certificateType: letsencrypt` y `https: true`,
+actualiza `CORS_ORIGINS`, `STREAM_PUBLIC_URL`, `VITE_API_URL` y `VITE_STREAM_URL` a
+`https://`, y **redespliega** (las `VITE_*` son build args: sin rebuild el dashboard
+seguiría apuntando a las URLs viejas).
+
 ## 12. Solución de problemas
 
 | Síntoma | Causa probable | Solución |
