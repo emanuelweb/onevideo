@@ -11,6 +11,7 @@ services:
     restart: unless-stopped
     networks:
       - internal
+      - dokploy-network
 
   web:
     build:
@@ -25,7 +26,7 @@ services:
       - api
     restart: unless-stopped
     networks:
-      - internal
+      - dokploy-network
 
   mediamtx:
     image: bluenviron/mediamtx:latest
@@ -52,6 +53,7 @@ services:
     restart: unless-stopped
     networks:
       - internal
+      - dokploy-network
 
   db:
     image: postgres:16-alpine
@@ -73,8 +75,13 @@ services:
       - internal
 
 networks:
+  # Tráfico privado entre api, mediamtx y db. La base de datos vive solo aquí.
   internal:
     driver: bridge
+  # Red compartida donde Traefik (Dokploy) descubre los servicios con dominio.
+  # En local hay que crearla una vez: docker network create dokploy-network
+  dokploy-network:
+    external: true
 
 volumes:
   db-data:

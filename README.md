@@ -50,6 +50,11 @@ Requisitos: Docker y Docker Compose v2.
 ```bash
 cp .env.example .env
 # Edita .env si lo necesitas (para uso local los valores por defecto sirven)
+
+# Red compartida con Traefik. En el VPS ya existe (la crea Dokploy);
+# en tu máquina hay que crearla una sola vez:
+docker network create dokploy-network
+
 docker compose up -d --build
 ```
 
