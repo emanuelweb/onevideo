@@ -1,0 +1,31 @@
+# Entorno
+.env
+.env.*
+!.env.example
+docker-compose.override.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.local
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

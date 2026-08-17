@@ -1,0 +1,14 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+sqlalchemy>=2.0,<3
+psycopg[binary]>=3.2,<4
+alembic>=1.13,<2
+pyjwt>=2.9,<3
+bcrypt>=4.1,<5
+httpx>=0.27,<1
+# Backend del TestClient de Starlette >= 1.6 (evita StarletteDeprecationWarning por usar httpx clásico).
+httpx2>=2,<3
+pydantic>=2.7,<3
+pydantic-settings>=2.4,<3
+email-validator>=2.1,<3
+pytest>=8.2,<9

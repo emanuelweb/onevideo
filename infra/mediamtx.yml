@@ -1,0 +1,65 @@
+# OneVideo — Configuración de MediaMTX (MVP: solo WebRTC)
+# Referencia de claves: https://github.com/bluenviron/mediamtx
+
+logLevel: info
+
+###############################################
+# Autenticación delegada al backend
+###############################################
+
+# Cada intento de publish/read/api se valida con un POST JSON al API de OneVideo.
+authMethod: http
+# En docker-compose este valor se sobrescribe con la variable de entorno
+# MTX_AUTHHTTPADDRESS=http://api:8000/api/v1/internal/mediamtx/auth?secret=${MEDIAMTX_AUTH_SECRET}:
+# el secreto compartido autentica a MediaMTX ante el API (la IP del cliente no basta,
+# porque X-Forwarded-For es falsificable a través del reverse proxy).
+authHTTPAddress: http://api:8000/api/v1/internal/mediamtx/auth
+# Sin exclusiones: el API también decide sobre "action: api"
+# (lo permite solo desde IPs de la red interna de Docker).
+authHTTPExclude: []
+
+###############################################
+# API de control de MediaMTX
+###############################################
+
+# La consume el tracker de sesiones del backend (GET /v3/paths/list cada 30 s).
+# Solo accesible dentro de la red Docker; no publicar este puerto al host.
+api: yes
+apiAddress: :9997
+
+###############################################
+# Protocolos deshabilitados en el MVP
+###############################################
+
+rtsp: no
+rtmp: no
+hls: no
+srt: no
+
+###############################################
+# WebRTC (WHIP para publicar, WHEP y player para leer)
+###############################################
+
+webrtc: yes
+webrtcAddress: :8889
+# TLS lo termina el reverse proxy (Traefik/Dokploy); el tráfico interno va en claro.
+webrtcEncryption: no
+webrtcAllowOrigin: '*'
+# Puerto UDP único para ICE. Debe publicarse 8189/udp en el host
+# y abrirse en el firewall del VPS.
+webrtcLocalUDPAddress: :8189
+webrtcIPsFromInterfaces: yes
+# Hosts/IPs anunciados en los candidatos ICE hacia los clientes.
+# En docker-compose este valor se sobrescribe con la variable de entorno
+# MTX_WEBRTCADDITIONALHOSTS=${PUBLIC_IP}; lo de abajo es solo un placeholder.
+webrtcAdditionalHosts: [203.0.113.10]
+
+###############################################
+# Paths
+###############################################
+
+# Solo se aceptan paths con la forma live/<uuid en minúsculas y con guiones>.
+# Cualquier otro path se rechaza (no hay comodín).
+paths:
+  '~^live/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$':
+    source: publisher

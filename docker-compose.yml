@@ -1,0 +1,80 @@
+services:
+  api:
+    build:
+      context: ./backend
+    env_file: .env
+    expose:
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_STREAM_URL: ${VITE_STREAM_URL}
+    # Sin env_file: nginx sirve estáticos y las VITE_* ya quedaron horneadas en el build.
+    expose:
+      - "80"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - internal
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    # Sin env_file: solo recibe las dos variables que necesita, no los secretos de la DB.
+    environment:
+      # Sobrescribe webrtcAdditionalHosts de infra/mediamtx.yml con la IP pública del VPS.
+      MTX_WEBRTCADDITIONALHOSTS: ${PUBLIC_IP}
+      # Sobrescribe authHTTPAddress para adjuntar el secreto compartido con el API:
+      # el hook /internal/mediamtx/auth exige ?secret=... y así queda inutilizable
+      # desde internet aunque Traefik exponga api.${DOMAIN}/api/v1.
+      MTX_AUTHHTTPADDRESS: http://api:8000/api/v1/internal/mediamtx/auth?secret=${MEDIAMTX_AUTH_SECRET}
+    volumes:
+      - ./infra/mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      # ICE UDP de WebRTC: único puerto de medios publicado al host.
+      - "8189:8189/udp"
+    expose:
+      # 8889: WHIP/WHEP/player, se sirve al público vía reverse proxy (stream.${DOMAIN}).
+      # 9997: API de MediaMTX, solo red interna (la consume el tracker del api).
+      - "8889"
+      - "9997"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - internal
+
+  db:
+    image: postgres:16-alpine
+    # Sin env_file: Postgres recibe solo sus credenciales, no SECRET_KEY ni el resto.
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  db-data:

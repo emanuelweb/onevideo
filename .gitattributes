@@ -1,0 +1,10 @@
+# Normaliza a LF: estos archivos se ejecutan dentro de contenedores Linux y
+# un CRLF en entrypoint.sh rompe el shebang ("bad interpreter: sh^M").
+* text=auto eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
