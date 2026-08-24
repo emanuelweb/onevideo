@@ -78,6 +78,16 @@ bloqueada, temperatura máxima vista en telemetría, y si algún control remoto 
 respondió. Con 5–10 equipos distintos (ideal: al menos un Xiaomi y un Samsung de gama
 media) sabremos si la estrategia de foreground service aguanta la beta.
 
+## Grabación en la nube y códecs (corregido en v1.2.0)
+
+Las grabaciones se guardan en fMP4, que **no admite VP8**. Hasta la v1.1.0 la app
+dejaba que la negociación WebRTC eligiera códec y algunos equipos transmitían en
+VP8: el stream se veía bien en vivo, pero la grabación quedaba **solo con audio**
+(video en negro). Desde la **v1.2.0** la app pone H264 primero en la negociación
+(todo celular lo trae por hardware), con VP8/VP9 de respaldo. Si pruebas grabación,
+usa v1.2.0 o superior; las grabaciones en negro hechas antes son archivos de solo
+audio y pueden eliminarse desde el dashboard.
+
 ## Limitaciones conocidas de esta versión
 
 - La **linterna** no funciona mientras se transmite (limitación técnica de esta

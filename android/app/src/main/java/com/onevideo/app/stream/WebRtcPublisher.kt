@@ -13,6 +13,7 @@ import org.webrtc.EglBase
 import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
 import org.webrtc.MediaStream
+import org.webrtc.MediaStreamTrack
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.RtpTransceiver
@@ -152,6 +153,20 @@ class WebRtcPublisher(
         pc.addTrack(aTrack, listOf(STREAM_ID))
         // Publicación pura: sin recepción.
         pc.transceivers.forEach { it.direction = RtpTransceiver.RtpTransceiverDirection.SEND_ONLY }
+
+        // La grabación en la nube usa fMP4, que NO admite VP8: si el offer lleva VP8
+        // primero, MediaMTX transmite bien pero graba solo el audio (video en negro).
+        // Se ordena H264 al frente —todo celular lo trae por hardware— y se conservan
+        // VP8/VP9 como respaldo para no romper la transmisión en encoders exóticos.
+        val videoCodecs = factory
+            .getRtpSenderCapabilities(MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO)
+            .codecs
+        if (videoCodecs.any { it.name.equals("H264", ignoreCase = true) }) {
+            val preferred = videoCodecs.sortedByDescending { it.name.equals("H264", ignoreCase = true) }
+            pc.transceivers
+                .firstOrNull { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO }
+                ?.setCodecPreferences(preferred)
+        }
 
         applyMaxBitrate(config.bitrateKbps)
 

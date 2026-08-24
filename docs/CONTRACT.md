@@ -213,7 +213,12 @@ Todas responden **403** `{"detail": "Necesitas permisos de administrador."}` a u
 | GET | `/admin/users/{user_id}/grants` | — | `[PlanGrantPublic]` |
 
 ```
-AdminUser = {id, email, name, is_active, is_superadmin, created_at,
+
+
+> **Códecs grabables**: fMP4 admite H264/H265/VP9/AV1 y Opus/AAC, pero **no VP8**.
+> Si un publicador negocia VP8, MediaMTX graba solo las pistas soportadas (p. ej.
+> solo el audio) y registra `skipping track (VP8)`. Por eso la app Android (v1.2.0+)
+> antepone H264 en sus preferencias de códec.AdminUser = {id, email, name, is_active, is_superadmin, created_at,
              plan: PlanPublic, plan_source, plan_expires_at,
              devices_count: int, hours_used_month: float}
 AdminStats = {users_total, users_active, devices_total, devices_streaming,
