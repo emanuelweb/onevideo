@@ -10,9 +10,11 @@ import type {
   Device,
   DeviceSettings,
   DeviceWithPairing,
+  DownloadToken,
   PairingCodeInfo,
   PlanGrant,
   PlanPublic,
+  RecordingList,
   StreamInfo,
   Usage,
   User,
@@ -147,6 +149,16 @@ export const api = {
       body: payload !== undefined ? { type, payload } : { type },
     }),
   streamInfo: (id: string) => request<StreamInfo>(`/devices/${id}/stream`),
+
+  // Grabación en la nube
+  setRecording: (id: string, enabled: boolean) =>
+    request<Device>(`/devices/${id}/recording`, { method: "POST", body: { enabled } }),
+  recordings: (id: string) => request<RecordingList>(`/devices/${id}/recordings`),
+  recordingDownloadToken: (id: string, rid: string) =>
+    request<DownloadToken>(`/devices/${id}/recordings/${rid}/download-token`, { method: "POST" }),
+  deleteRecording: (id: string, rid: string) =>
+    request<void>(`/devices/${id}/recordings/${rid}`, { method: "DELETE" }),
+
   rotateViewToken: (id: string) =>
     request<StreamInfo>(`/devices/${id}/view-token/rotate`, { method: "POST" }),
 

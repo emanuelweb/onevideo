@@ -36,6 +36,9 @@ Servicios Docker Compose (nombres exactos): `api`, `web`, `mediamtx`, `db`.
   API interna **9997** (solo red interna, sin exponer).
 - `db` — `postgres:16-alpine`, volumen `db-data`, solo red interna.
 
+Volumen `recordings-data`: montado en `/recordings` (rw) en `mediamtx` (escribe los MP4
+de grabación) y en `api` (lista, sirve y elimina esos archivos). Ver §Grabaciones.
+
 ## 2. Variables de entorno (`.env.example` en la raíz)
 
 ```
@@ -51,6 +54,7 @@ CORS_ORIGINS=https://app.onevideo.example.com
 MEDIAMTX_API_URL=http://mediamtx:9997
 MEDIAMTX_AUTH_SECRET=cambiame-secreto-interno   # secreto compartido MediaMTX -> API (hook interno de auth)
 STREAM_PUBLIC_URL=https://stream.onevideo.example.com
+RECORDINGS_DIR=/recordings        # directorio de grabaciones en el contenedor api (volumen recordings-data)
 SUPERADMIN_EMAILS=                # correos (separados por comas) habilitados para el bootstrap de super-admin
 SUPERADMIN_BOOTSTRAP_TOKEN=       # secreto que además hay que enviar en el bootstrap (vacío = autoservicio apagado)
 
@@ -89,7 +93,7 @@ Autenticación de usuario: `Authorization: Bearer <jwt>`. Errores: JSON `{"detai
 | GET | `/plans` | público | `[PlanPublic]` |
 | GET | `/usage` | auth | `{period_start, period_end, hours_used, hours_limit, devices_used, devices_limit}` |
 
-`PlanPublic = {code, name, price_usd_month, max_devices, max_resolution, max_fps, monthly_hours, features: [string]}`
+`PlanPublic = {code, name, price_usd_month, max_devices, max_resolution, max_fps, monthly_hours, max_recording_gb, features: [string]}`
 
 ### Dispositivos (auth)
 | GET | `/devices` | — | `[Device]` |
@@ -104,7 +108,7 @@ Autenticación de usuario: `Authorization: Bearer <jwt>`. Errores: JSON `{"detai
 
 ```
 Device = {id, name, platform, model, status: "online"|"offline"|"streaming",
-          camera_on, last_seen_at, created_at,
+          camera_on, recording_on, last_seen_at, created_at,
           telemetry: {battery, temp_c, charging, network, bitrate_kbps, resolution, facing} | null,
           settings: {resolution, fps, bitrate_kbps, facing}}
 DeviceWithPairing = Device + {pairing_code, pairing_expires_at}
@@ -117,6 +121,82 @@ Command types: "camera_on" | "camera_off" | "switch_camera" | "set_quality" | "t
 | POST | `/pairing/claim` | `{code, platform:"android", model}` | `{device_id, device_token, whip_url, ws_url}` |
 
 `code`: 8 caracteres A-Z0-9, expira a los 15 min, un solo uso. `device_token`: opaco, 43 chars urlsafe, se guarda **hasheado** (sha256) en DB.
+
+### Grabaciones (auth de usuario, salvo el download por token)
+
+| Método | Ruta | Body | Respuesta |
+|---|---|---|---|
+| POST | `/devices/{id}/recording` | `{enabled: bool}` | `Device` |
+| GET | `/devices/{id}/recordings` | — | `{items: [Recording], used_bytes: int, limit_bytes: int}` |
+| POST | `/devices/{id}/recordings/{rid}/download-token` | — | `{url: str, expires_at: datetime}` |
+| GET | `/devices/{id}/recordings/{rid}/download?token=` | SIN header auth | MP4 con soporte Range |
+| DELETE | `/devices/{id}/recordings/{rid}` | — | 204 |
+
+```
+Recording = {id: str, filename: str, started_at: datetime|null, size_bytes: int, in_progress: bool}
+```
+
+Reglas:
+- `POST /recording {enabled:true}` con `used_bytes >= limit_bytes` → **403**
+  "Alcanzaste el almacenamiento de grabaciones de tu plan. Elimina grabaciones o mejora tu plan.".
+  Persiste `devices.recording_on`, aplica el cambio en MediaMTX best-effort (si no responde,
+  el reconciliador del tracker lo aplicará) y notifica consolas (`device_status` por hub).
+- `rid` = filename en base64url **sin padding**. Al decodificar debe casar
+  `^[0-9A-Za-z_\-\.]+\.mp4$` (sin `..` ni separadores) y el path final debe resolverse
+  dentro de `<RECORDINGS_DIR>/live/<device_id>/` (`resolve()` + `relative_to`); si no
+  cumple → **404** "Grabación no encontrada.".
+- `started_at` se parsea del nombre de archivo `%Y-%m-%d_%H-%M-%S-%f` (UTC); si no parsea → `null`.
+- `in_progress`: mtime del archivo hace menos de 30 s. `DELETE` de una grabación en curso →
+  **409** "Esa grabación está en curso. Detén la grabación antes de eliminarla.".
+- `used_bytes` suma los bytes de **todos** los dispositivos del usuario (el límite es por
+  usuario/plan, no por device). `limit_bytes = plan.max_recording_gb * 1024**3`.
+- `download-token`: JWT HS256 con `SECRET_KEY`, claims `{sub: user_id, scope: "recording",
+  device_id, rid, exp: now+6h}`. `url` absoluta construida desde el request
+  (respeta `X-Forwarded-Proto`/`Host`).
+- Separación de scopes en ambos sentidos: el JWT de sesión lleva `scope: "session"` y
+  `decode_access_token` rechaza cualquier otro scope, así que un token de descarga
+  filtrado no sirve como bearer de sesión (y viceversa).
+- El token viaja en el query string (el `<video>` del navegador no puede mandar
+  headers), así que un filtro sobre el logger `uvicorn.access` (`app/main.py`)
+  redacta el valor de `token=` antes de que la línea llegue a `docker logs`.
+- `GET /download?token=`: valida firma, scope, exp, que `device_id`/`rid` del token calcen
+  con la URL y que el device siga siendo del `sub`. Respuesta con `Accept-Ranges: bytes`,
+  soporte de `Range: bytes=a-b` (206 con `Content-Range`; sin Range o Range no parseable →
+  200 completo, RFC 7233; 416 solo para rangos bien formados fuera del archivo), Content-Type
+  `video/mp4`, streaming async por chunks de 512 KB, `Content-Disposition: inline` con filename.
+- Cuota en el reconciliador: usuario sobre su límite ⇒ `recording_on=false` en todos sus
+  devices, se quitan los path configs de MediaMTX y se notifican las consolas.
+
+**Mecanismo** — MediaMTX graba nativamente; el backend no toca los bytes de video:
+
+- Config estática en `infra/mediamtx.yml`, bloque `pathDefaults`:
+  `record: no` (default), `recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f`,
+  `recordFormat: fmp4`, `recordPartDuration: 1s`, `recordSegmentDuration: 1h`,
+  `recordDeleteAfter: 0s` (¡el default de MediaMTX es `1d` y borraría solo!).
+- Encendido/apagado por dispositivo en runtime vía la API de control (`MEDIAMTX_API_URL`, :9997):
+  - Activar: `POST /v3/config/paths/add/live%2F<device_uuid>` body `{"record": true}`;
+    si ya existe → `PATCH /v3/config/paths/patch/live%2F<device_uuid>` mismo body.
+  - Desactivar: `DELETE /v3/config/paths/delete/live%2F<device_uuid>` (el path vuelve a
+    caer en el regex catch-all, sin grabación).
+  - El nombre del path va URL-encodeado en la URL (la barra como `%2F`).
+- Los archivos quedan en `/recordings/live/<device_uuid>/<YYYY-MM-DD_HH-MM-SS-ffffff>.mp4`
+  (volumen `recordings-data`, compartido entre `mediamtx` y `api`; env `RECORDINGS_DIR`).
+- La config runtime de MediaMTX vive en memoria: la verdad es `devices.recording_on` y el
+  loop del tracker (cada 30 s) **reconcilia**: agrega los path configs que falten y elimina
+  los configs explícitos `live/*` cuyo device ya no graba o no existe. Fallos de red → log
+  y reintento en el siguiente ciclo, nunca crash del loop.
+
+> Verificado contra la doc oficial de MediaMTX (repo `bluenviron/mediamtx`, rama `main`,
+> 2026-08): las claves `record`, `recordPath`, `recordFormat` (`fmp4` | `mpegts`),
+> `recordPartDuration`, `recordSegmentDuration` y `recordDeleteAfter` (default **1d**;
+> `0s` lo desactiva) existen con esos nombres exactos en `pathDefaults` del `mediamtx.yml`
+> de referencia y en el schema `PathConf` de `api/openapi.yaml` (que además define
+> `recordMaxPartSize`, default 50M — dejamos el default). Los endpoints confirmados en
+> `api/openapi.yaml` son `POST /v3/config/paths/add/{name}`,
+> `PATCH /v3/config/paths/patch/{name}`, `POST /v3/config/paths/replace/{name}`,
+> `DELETE /v3/config/paths/delete/{name}`, `GET /v3/config/paths/get/{name}` y
+> `GET /v3/config/paths/list`; add/patch/replace aceptan un body `PathConf` con todos los
+> campos opcionales.
 
 ### Administración (auth + `is_superadmin`)
 
@@ -221,7 +301,7 @@ Al conectar: server marca device `online`; al desconectar: `offline` y notifica 
 ```
 plans:            id PK, code UNIQUE, name, price_usd_month NUMERIC(6,2), max_devices INT,
                   max_resolution TEXT, max_fps INT, monthly_hours INT NULL (NULL = ilimitado),
-                  features JSONB, sort_order INT
+                  max_recording_gb INT NOT NULL DEFAULT 1, features JSONB, sort_order INT
 users:            id UUID PK, email UNIQUE (citext o lower-index), password_hash, name,
                   plan_id FK->plans, plan_source TEXT NOT NULL DEFAULT 'signup',
                   plan_expires_at TIMESTAMPTZ NULL, is_active BOOL,
@@ -231,18 +311,21 @@ plan_grants:      id BIGSERIAL PK, user_id FK->users ON DELETE CASCADE (index),
                   plan_id FK->plans, granted_by FK->users ON DELETE SET NULL NULL,
                   source TEXT NOT NULL, expires_at TIMESTAMPTZ NULL, note TEXT NULL, created_at
 devices:          id UUID PK, user_id FK, name, platform, model, device_token_hash TEXT NULL,
-                  view_token TEXT, camera_on BOOL, status TEXT, last_seen_at, settings JSONB, created_at
+                  view_token TEXT, camera_on BOOL, recording_on BOOL NOT NULL DEFAULT false,
+                  status TEXT, last_seen_at, settings JSONB, created_at
 pairing_codes:    code PK, device_id FK, expires_at, used_at NULL
 stream_sessions:  id PK, device_id FK, started_at, ended_at NULL
 ```
 
 Seed de planes (migración o startup):
-| code | name | USD/mes | devices | res | fps | horas/mes |
-|---|---|---|---|---|---|---|
-| free | Gratis | 0 | 1 | 720p | 30 | 15 |
-| creator | Creador | 4.99 | 1 | 1080p | 30 | 60 |
-| pro | Pro | 9.99 | 2 | 1080p | 60 | 150 |
-| studio | Estudio | 19.99 | 4 | 1080p | 60 | NULL (fair use) |
+| code | name | USD/mes | devices | res | fps | horas/mes | grabación (GB) |
+|---|---|---|---|---|---|---|---|
+| free | Gratis | 0 | 1 | 720p | 30 | 15 | 1 |
+| creator | Creador | 4.99 | 1 | 1080p | 30 | 60 | 5 |
+| pro | Pro | 9.99 | 2 | 1080p | 60 | 150 | 20 |
+| studio | Estudio | 19.99 | 4 | 1080p | 60 | NULL (fair use) | 40 |
+
+El seed añade además a `plans.features` la línea "X GB de grabaciones en la nube" por plan.
 
 Horas usadas del período = suma de duración de `stream_sessions` del mes calendario en curso.
 Un tracker en el `api` consulta `GET {MEDIAMTX_API_URL}/v3/paths/list` cada 30 s: paths activos
@@ -293,6 +376,8 @@ copiar), `/app/guia-obs` (guía paso a paso OBS/Kick/Twitch), `/app/cuenta` (pla
   plan `free` (con `plan_source='signup'`, `plan_expires_at=NULL`) cuando la fecha ya pasó. Se invoca
   en `deps.get_current_user()` (toda la API autenticada) y en el hook `action == "publish"` de
   `/internal/mediamtx/auth` (publicación del celular). El resto del código usa `user.plan` sin cambios.
-- Passwords con bcrypt (cost 12). JWT HS256 con `SECRET_KEY`, claim `sub` = user id.
+- Passwords con bcrypt (cost 12). JWT de sesión HS256 con `SECRET_KEY`, claims `sub` = user id
+  y `scope: "session"` (obligatorio: la API rechaza JWT con otro scope, p. ej. los de descarga
+  de grabaciones).
 - CORS: solo `CORS_ORIGINS`.
 - Todo texto visible para usuarios finales: español neutro LATAM.

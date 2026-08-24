@@ -5,12 +5,12 @@
 
 ## 1. Planes
 
-| Plan | Precio | Dispositivos | Calidad máx. | Horas/mes | Pensado para |
-|---|---|---|---|---|---|
-| **Gratis** (`free`) | USD 0 | 1 | 720p / 30 fps | 15 | probar el producto de verdad, no una demo |
-| **Creador** (`creator`) | USD 4.99/mes | 1 | 1080p / 30 fps | 60 | quien streamea 3–4 veces por semana |
-| **Pro** (`pro`) | USD 9.99/mes | 2 | 1080p / 60 fps | 150 | streamer regular con segunda cámara |
-| **Estudio** (`studio`) | USD 19.99/mes | 4 | 1080p / 60 fps | Ilimitadas (uso justo) | multicámara, IRL intensivo, dúos |
+| Plan | Precio | Dispositivos | Calidad máx. | Horas/mes | Grabación en la nube | Pensado para |
+|---|---|---|---|---|---|---|
+| **Gratis** (`free`) | USD 0 | 1 | 720p / 30 fps | 15 | 1 GB | probar el producto de verdad, no una demo |
+| **Creador** (`creator`) | USD 4.99/mes | 1 | 1080p / 30 fps | 60 | 5 GB | quien streamea 3–4 veces por semana |
+| **Pro** (`pro`) | USD 9.99/mes | 2 | 1080p / 60 fps | 150 | 20 GB | streamer regular con segunda cámara |
+| **Estudio** (`studio`) | USD 19.99/mes | 4 | 1080p / 60 fps | Ilimitadas (uso justo) | 40 GB | multicámara, IRL intensivo, dúos |
 
 - **Anual: −20 %** (Creador 47.90, Pro 95.90, Estudio 191.90 USD/año). El descuento anual
   no es solo retención: cobrar una vez al año reduce el peso de las comisiones fijas de
@@ -18,6 +18,14 @@
 - "Uso justo" en Estudio: sin medidor visible, con techo interno de abuso (p. ej. re-stream
   24/7 automatizado) documentado en términos. Si un usuario legítimo lo roza, es señal de
   que necesitamos un plan superior, no de cortarle el servicio.
+- **Grabación en la nube**: cuota de almacenamiento **por usuario** (no por dispositivo),
+  medida sobre los MP4 guardados; al llegar al límite se apaga la grabación (el usuario
+  elimina grabaciones o mejora de plan). Costo: las grabaciones viven en el **disco NVMe
+  local del VPS (~100 GB compartidos con el resto del sistema)**, así que la suma de cuotas
+  vendidas hay que vigilarla — con los topes actuales, ~10 usuarios Pro consumiendo todo ya
+  serían 200 GB teóricos. Mitiga que el uso real suele ser una fracción de la cuota, pero si
+  la adopción crece, el paso siguiente es offload a objeto (S3/R2, ~USD 0.015/GB-mes) sin
+  cambiar el contrato de la API.
 
 ## 2. Por qué tiene sentido en LATAM
 

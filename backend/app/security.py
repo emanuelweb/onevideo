@@ -11,6 +11,10 @@ import jwt
 from app.config import settings
 
 JWT_ALGORITHM = "HS256"
+# Scope del JWT de sesión. Los tokens de descarga de grabaciones usan scope
+# "recording" (services/recordings.py) y ambos se firman con la misma clave:
+# el claim `scope` es lo que impide usar uno en el lugar del otro.
+SESSION_TOKEN_SCOPE = "session"
 BCRYPT_ROUNDS = 12
 # bcrypt solo considera los primeros 72 bytes de la contraseña.
 _BCRYPT_MAX_BYTES = 72
@@ -36,7 +40,12 @@ def verify_password(password: str, password_hash: str) -> bool:
 def create_access_token(user_id: str, expires_minutes: int | None = None) -> str:
     minutes = settings.access_token_expire_minutes if expires_minutes is None else expires_minutes
     now = datetime.now(timezone.utc)
-    payload = {"sub": user_id, "iat": now, "exp": now + timedelta(minutes=minutes)}
+    payload = {
+        "sub": user_id,
+        "scope": SESSION_TOKEN_SCOPE,
+        "iat": now,
+        "exp": now + timedelta(minutes=minutes),
+    }
     return jwt.encode(payload, settings.secret_key, algorithm=JWT_ALGORITHM)
 
 
@@ -45,6 +54,10 @@ def decode_access_token(token: str) -> str | None:
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[JWT_ALGORITHM])
     except jwt.InvalidTokenError:
+        return None
+    # Rechaza cualquier JWT con otro scope (p. ej. un token de descarga de
+    # grabaciones): que ese token se filtre no debe dar acceso a toda la API.
+    if payload.get("scope") != SESSION_TOKEN_SCOPE:
         return None
     sub = payload.get("sub")
     return sub if isinstance(sub, str) else None

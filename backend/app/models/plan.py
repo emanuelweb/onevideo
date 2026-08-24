@@ -19,5 +19,7 @@ class Plan(Base):
     max_fps: Mapped[int] = mapped_column(Integer, nullable=False)
     # NULL = horas ilimitadas (fair use).
     monthly_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Cuota de grabaciones en la nube (por usuario, no por dispositivo).
+    max_recording_gb: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     features: Mapped[list] = mapped_column(JSONType, nullable=False, default=list)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

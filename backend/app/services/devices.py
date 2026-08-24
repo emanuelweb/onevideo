@@ -104,6 +104,7 @@ def device_public(device: Device) -> DevicePublic:
         model=device.model,
         status=device.status,
         camera_on=device.camera_on,
+        recording_on=device.recording_on,
         last_seen_at=device.last_seen_at,
         created_at=device.created_at,
         telemetry=hub.get_telemetry(device.id),

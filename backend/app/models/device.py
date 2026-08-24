@@ -33,6 +33,8 @@ class Device(Base):
     device_token_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     view_token: Mapped[str] = mapped_column(Text, nullable=False)
     camera_on: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Grabación en la nube activada por el usuario; el tracker la reconcilia con MediaMTX.
+    recording_on: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, default=DEVICE_STATUS_OFFLINE)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     settings: Mapped[dict] = mapped_column(JSONType, nullable=False, default=dict)

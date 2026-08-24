@@ -40,6 +40,19 @@ export function formatHours(hours: number): string {
   return minutes === 0 ? `${whole} h` : `${whole} h ${minutes} min`;
 }
 
+/** Bytes → gigabytes con 1 decimal, p. ej. "1.5 GB". */
+export function formatGB(bytes: number): string {
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+}
+
+/** Tamaño de archivo legible: elige la unidad según la magnitud. */
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1024 ** 3) return formatGB(bytes);
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
 export function formatPrice(value: number | string): string {
   const amount = Number(value);
   return amount === 0 ? "Gratis" : `US$ ${amount.toFixed(2)}`;

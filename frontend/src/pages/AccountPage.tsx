@@ -5,13 +5,22 @@ import { ErrorNotice } from "../components/ErrorNotice";
 import { Loader } from "../components/Loader";
 import { ProgressBar } from "../components/ProgressBar";
 import { api, getErrorMessage } from "../lib/api";
-import { formatDate, formatHours, formatPrice } from "../lib/format";
+import { formatDate, formatGB, formatHours, formatPrice } from "../lib/format";
 import type { Usage } from "../lib/types";
+
+interface RecordingUsage {
+  used_bytes: number;
+  limit_bytes: number;
+}
 
 export default function AccountPage() {
   const { user } = useAuth();
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [recordingUsage, setRecordingUsage] = useState<RecordingUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const plan = user?.plan ?? null;
+  const planRecordingGb = plan?.max_recording_gb ?? null;
 
   const load = useCallback(() => {
     setError(null);
@@ -23,7 +32,30 @@ export default function AccountPage() {
 
   useEffect(load, [load]);
 
-  const plan = user?.plan ?? null;
+  // El uso de grabaciones es por usuario: cualquier dispositivo lo reporta.
+  // Sin dispositivos, se muestra 0 con el límite del plan.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .devices()
+      .then((devices) =>
+        devices.length > 0 ? api.recordings(devices[0].id) : null,
+      )
+      .then((data) => {
+        if (cancelled) return;
+        if (data !== null) {
+          setRecordingUsage({ used_bytes: data.used_bytes, limit_bytes: data.limit_bytes });
+        } else if (planRecordingGb !== null) {
+          setRecordingUsage({ used_bytes: 0, limit_bytes: planRecordingGb * 1024 ** 3 });
+        }
+      })
+      .catch(() => {
+        // Silencioso: si falla, simplemente no se muestra la fila de grabaciones.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [planRecordingGb]);
 
   return (
     <>
@@ -103,6 +135,20 @@ export default function AccountPage() {
                 </div>
                 <ProgressBar value={usage.hours_used} max={usage.hours_limit} />
               </div>
+              {recordingUsage !== null && (
+                <div className="usage-row">
+                  <div className="usage-head">
+                    <span>Grabaciones</span>
+                    <span>
+                      {formatGB(recordingUsage.used_bytes)} de {formatGB(recordingUsage.limit_bytes)}
+                    </span>
+                  </div>
+                  <ProgressBar
+                    value={recordingUsage.used_bytes}
+                    max={recordingUsage.limit_bytes}
+                  />
+                </div>
+              )}
               <div className="usage-row">
                 <div className="usage-head">
                   <span>Dispositivos</span>

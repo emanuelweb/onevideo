@@ -25,6 +25,12 @@ from app.schemas.device import (
 from app.schemas.internal import MediaMTXAuthPayload
 from app.schemas.pairing import PairingClaimRequest, PairingClaimResponse
 from app.schemas.plan import PlanPublic
+from app.schemas.recording import (
+    DownloadTokenResponse,
+    RecordingList,
+    RecordingPublic,
+    RecordingToggleRequest,
+)
 from app.schemas.usage import UsageResponse
 
 __all__ = [
@@ -43,6 +49,7 @@ __all__ = [
     "DeviceTelemetry",
     "DeviceUpdate",
     "DeviceWithPairing",
+    "DownloadTokenResponse",
     "LoginRequest",
     "MediaMTXAuthPayload",
     "PairingClaimRequest",
@@ -50,6 +57,9 @@ __all__ = [
     "PairingCodeResponse",
     "PlanGrantPublic",
     "PlanPublic",
+    "RecordingList",
+    "RecordingPublic",
+    "RecordingToggleRequest",
     "RegisterRequest",
     "SetQualityPayload",
     "StreamInfo",

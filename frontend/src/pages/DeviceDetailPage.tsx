@@ -7,15 +7,26 @@ import { ErrorNotice } from "../components/ErrorNotice";
 import { Loader } from "../components/Loader";
 import { Modal } from "../components/Modal";
 import { PairingCodeView } from "../components/PairingCodeView";
+import { ProgressBar } from "../components/ProgressBar";
 import { StatusBadge } from "../components/StatusBadge";
 import { useConsoleSocket } from "../hooks/useConsoleSocket";
 import { api, getErrorMessage } from "../lib/api";
-import { facingLabel, formatRelative, networkLabel } from "../lib/format";
+import {
+  facingLabel,
+  formatBytes,
+  formatDate,
+  formatGB,
+  formatRelative,
+  formatTime,
+  networkLabel,
+} from "../lib/format";
 import type {
   CommandType,
   Device,
   Fps,
   PairingCodeInfo,
+  Recording,
+  RecordingList,
   Resolution,
   StreamInfo,
 } from "../lib/types";
@@ -32,6 +43,13 @@ interface Notice {
 function recommendedBitrateKbps(resolution: Resolution, fps: Fps): number {
   if (resolution === "1080p") return fps === 60 ? 6000 : 4500;
   return fps === 60 ? 3500 : 2500;
+}
+
+/** Fecha/hora local de la grabación; si el nombre no trae fecha, el nombre tal cual. */
+function recordingLabel(recording: Recording): string {
+  return recording.started_at !== null
+    ? `${formatDate(recording.started_at)} · ${formatTime(recording.started_at)}`
+    : recording.filename;
 }
 
 export default function DeviceDetailPage() {
@@ -52,6 +70,16 @@ export default function DeviceDetailPage() {
   const [pairingInfo, setPairingInfo] = useState<PairingCodeInfo | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [rotating, setRotating] = useState(false);
+
+  // Grabación en la nube
+  const [recordingList, setRecordingList] = useState<RecordingList | null>(null);
+  const [recordingsError, setRecordingsError] = useState<string | null>(null);
+  const [recordingNotice, setRecordingNotice] = useState<string | null>(null);
+  const [togglingRecording, setTogglingRecording] = useState(false);
+  const [tokenBusyId, setTokenBusyId] = useState<string | null>(null);
+  const [playback, setPlayback] = useState<{ recording: Recording; url: string } | null>(null);
+  const [recordingToDelete, setRecordingToDelete] = useState<Recording | null>(null);
+  const [deletingRecording, setDeletingRecording] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<WhepPlayer | null>(null);
@@ -89,6 +117,31 @@ export default function DeviceDetailPage() {
   }, [loadedDeviceId]);
 
   const isStreaming = device?.status === "streaming";
+  const recordingOn = device?.recording_on === true;
+
+  const loadRecordings = useCallback(() => {
+    setRecordingsError(null);
+    api
+      .recordings(id)
+      .then(setRecordingList)
+      .catch((error) => setRecordingsError(getErrorMessage(error)));
+  }, [id]);
+
+  useEffect(loadRecordings, [loadRecordings]);
+
+  // Mientras se está grabando, la lista se refresca cada 10 s (solo con la pestaña visible).
+  useEffect(() => {
+    if (!recordingOn) return;
+    const refresh = (): void => {
+      if (document.visibilityState === "visible") loadRecordings();
+    };
+    const timer = window.setInterval(refresh, 10_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [recordingOn, loadRecordings]);
 
   const startPreview = useCallback(() => {
     const video = videoRef.current;
@@ -195,6 +248,68 @@ export default function DeviceDetailPage() {
     }
   }
 
+  async function handleToggleRecording(): Promise<void> {
+    if (device === null || togglingRecording) return;
+    const enabled = !device.recording_on;
+    setRecordingNotice(null);
+    setTogglingRecording(true);
+    // Update optimista: se revierte si el servidor rechaza el cambio (p. ej. 403 de cuota).
+    setDevice({ ...device, recording_on: enabled });
+    try {
+      const updated = await api.setRecording(id, enabled);
+      setDevice(updated);
+      loadRecordings();
+    } catch (error) {
+      setDevice((current) =>
+        current !== null ? { ...current, recording_on: !enabled } : current,
+      );
+      setRecordingNotice(getErrorMessage(error));
+    } finally {
+      setTogglingRecording(false);
+    }
+  }
+
+  async function handleViewRecording(recording: Recording): Promise<void> {
+    setRecordingNotice(null);
+    setTokenBusyId(recording.id);
+    try {
+      const token = await api.recordingDownloadToken(id, recording.id);
+      setPlayback({ recording, url: token.url });
+    } catch (error) {
+      setRecordingNotice(getErrorMessage(error));
+    } finally {
+      setTokenBusyId(null);
+    }
+  }
+
+  async function handleDownloadRecording(recording: Recording): Promise<void> {
+    setRecordingNotice(null);
+    setTokenBusyId(recording.id);
+    try {
+      const token = await api.recordingDownloadToken(id, recording.id);
+      window.open(token.url, "_blank", "noopener");
+    } catch (error) {
+      setRecordingNotice(getErrorMessage(error));
+    } finally {
+      setTokenBusyId(null);
+    }
+  }
+
+  async function handleDeleteRecording(): Promise<void> {
+    if (recordingToDelete === null) return;
+    setRecordingNotice(null);
+    setDeletingRecording(true);
+    try {
+      await api.deleteRecording(id, recordingToDelete.id);
+      loadRecordings();
+    } catch (error) {
+      setRecordingNotice(getErrorMessage(error));
+    } finally {
+      setDeletingRecording(false);
+      setRecordingToDelete(null);
+    }
+  }
+
   if (loadError !== null) {
     return (
       <>
@@ -219,6 +334,11 @@ export default function DeviceDetailPage() {
   const allow60 = plan === null || plan.max_fps >= 60;
   const busy = pendingCommand !== null;
   const telemetry = device.telemetry;
+  // Más reciente primero: el nombre de archivo empieza con la fecha, así que ordena solo.
+  const recordings =
+    recordingList !== null
+      ? [...recordingList.items].sort((a, b) => b.filename.localeCompare(a.filename))
+      : [];
 
   return (
     <>
@@ -431,6 +551,108 @@ export default function DeviceDetailPage() {
               </p>
             )}
           </section>
+
+          <section className="card">
+            <h2 className="section-title">Grabación en la nube</h2>
+            {recordingNotice !== null && (
+              <div className="notice notice-error" role="alert">
+                {recordingNotice}
+              </div>
+            )}
+            <div className="recording-toggle-row">
+              <div>
+                <span className="control-label">Grabar</span>
+                <p className="muted small">
+                  {recordingOn
+                    ? "Se graba mientras la cámara transmite."
+                    : "Activa el interruptor para guardar como MP4 lo que transmita esta cámara."}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={recordingOn}
+                aria-label="Grabar"
+                className={recordingOn ? "switch switch-on" : "switch"}
+                disabled={togglingRecording}
+                onClick={() => void handleToggleRecording()}
+              >
+                <span className="switch-thumb" aria-hidden="true" />
+              </button>
+            </div>
+
+            {recordingList !== null && (
+              <div className="usage-row">
+                <div className="usage-head">
+                  <span>Almacenamiento</span>
+                  <span>
+                    {formatGB(recordingList.used_bytes)} de {formatGB(recordingList.limit_bytes)}{" "}
+                    usados
+                  </span>
+                </div>
+                <ProgressBar value={recordingList.used_bytes} max={recordingList.limit_bytes} />
+              </div>
+            )}
+
+            {recordingsError !== null && (
+              <ErrorNotice message={recordingsError} onRetry={loadRecordings} />
+            )}
+            {recordingsError === null && recordingList === null && (
+              <Loader text="Cargando grabaciones…" />
+            )}
+            {recordingList !== null &&
+              (recordings.length === 0 ? (
+                <p className="muted">
+                  Aún no hay grabaciones. Con el interruptor activado, cada transmisión queda
+                  guardada aquí.
+                </p>
+              ) : (
+                <ul className="recording-list">
+                  {recordings.map((recording) => (
+                    <li key={recording.id} className="recording-item">
+                      <div className="recording-info">
+                        <span className="recording-when">{recordingLabel(recording)}</span>
+                        <span className="muted small">{formatBytes(recording.size_bytes)}</span>
+                        {recording.in_progress && (
+                          <span className="badge badge-recording">Grabando…</span>
+                        )}
+                      </div>
+                      <div className="btn-row">
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          disabled={tokenBusyId === recording.id}
+                          onClick={() => void handleViewRecording(recording)}
+                        >
+                          Ver
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          disabled={tokenBusyId === recording.id}
+                          onClick={() => void handleDownloadRecording(recording)}
+                        >
+                          Descargar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          disabled={recording.in_progress}
+                          title={
+                            recording.in_progress
+                              ? "Esa grabación está en curso. Detén la grabación antes de eliminarla."
+                              : undefined
+                          }
+                          onClick={() => setRecordingToDelete(recording)}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ))}
+          </section>
         </div>
 
         <div className="detail-side">
@@ -534,6 +756,51 @@ export default function DeviceDetailPage() {
           </section>
         </div>
       </div>
+
+      {playback !== null && (
+        <Modal
+          title={`Grabación · ${recordingLabel(playback.recording)}`}
+          onClose={() => setPlayback(null)}
+        >
+          <video
+            className="recording-video"
+            src={playback.url}
+            controls
+            autoPlay
+            playsInline
+          />
+          <p className="muted small">
+            La reproducción usa un enlace temporal (expira en 6 horas). Para conservar el archivo,
+            usa «Descargar».
+          </p>
+        </Modal>
+      )}
+
+      {recordingToDelete !== null && (
+        <Modal title="Eliminar grabación" onClose={() => setRecordingToDelete(null)}>
+          <p>
+            ¿Eliminar la grabación del {recordingLabel(recordingToDelete)} (
+            {formatBytes(recordingToDelete.size_bytes)})? Esta acción no se puede deshacer.
+          </p>
+          <div className="modal-footer">
+            <button
+              type="button"
+              className="btn btn-danger"
+              disabled={deletingRecording}
+              onClick={() => void handleDeleteRecording()}
+            >
+              {deletingRecording ? "Eliminando…" : "Sí, eliminar"}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setRecordingToDelete(null)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {pairingInfo !== null && (
         <Modal title="Nuevo código de emparejamiento" onClose={() => setPairingInfo(null)}>

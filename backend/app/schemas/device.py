@@ -54,6 +54,7 @@ class DevicePublic(BaseModel):
     model: str | None
     status: DeviceStatus
     camera_on: bool
+    recording_on: bool
     last_seen_at: datetime | None
     created_at: datetime
     telemetry: DeviceTelemetry | None

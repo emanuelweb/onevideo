@@ -115,6 +115,9 @@ En orden tentativo de valor/esfuerzo:
 4. **Overlays y escenas remotas**: composición ligera sobre el player (marcos, nombre,
    estado) sin transcodificar — se hace en el Browser Source con CSS/JS.
 5. **Escalado multi-nodo / regiones** según demanda real (ARQUITECTURA.md §6).
+6. **Grabación en la nube** — **HECHO** (adelantada de esta fase): MediaMTX graba fMP4
+   por dispositivo (toggle desde el dashboard), con listado/reproducción/descarga/borrado
+   y cuota de GB por plan. Contrato en CONTRACT.md §Grabaciones; costos en PRECIOS.md §1.
 
 **Criterios de salida** (por feature, regla general)
 1. Cada feature detrás de su flag de plan, medida (adopción y efecto en churn) antes de
@@ -126,7 +129,9 @@ En orden tentativo de valor/esfuerzo:
 
 ## Qué NO está en el roadmap (a propósito)
 
-- Transcodificación/ABR en servidor, grabación en la nube, RTMP de salida a plataformas:
-  convierten un relay barato en un negocio de cómputo caro; solo con demanda pagada clara.
+- Transcodificación/ABR en servidor y RTMP de salida a plataformas: convierten un relay
+  barato en un negocio de cómputo caro; solo con demanda pagada clara. (La grabación en la
+  nube salió de esta lista: MediaMTX la hace nativa sin transcodificar y ya está implementada
+  — ver Fase 5, punto 6.)
 - Kubernetes/microservicios: Compose + nodos MediaMTX horizontales llegan muy lejos.
 - Apps de escritorio: OBS ya es nuestro "cliente de escritorio".

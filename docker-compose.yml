@@ -5,6 +5,10 @@ services:
     env_file: .env
     expose:
       - "8000"
+    volumes:
+      # Grabaciones en la nube: la API lista, sirve (descarga con Range) y elimina
+      # los MP4 que escribe MediaMTX. rw porque el DELETE borra archivos.
+      - recordings-data:/recordings
     depends_on:
       db:
         condition: service_healthy
@@ -40,6 +44,9 @@ services:
       MTX_AUTHHTTPADDRESS: http://api:8000/api/v1/internal/mediamtx/auth?secret=${MEDIAMTX_AUTH_SECRET}
     volumes:
       - ./infra/mediamtx.yml:/mediamtx.yml:ro
+      # Grabaciones en la nube: MediaMTX escribe aquí los segmentos fMP4
+      # (recordPath en infra/mediamtx.yml). Compartido con el servicio api.
+      - recordings-data:/recordings
     ports:
       # ICE UDP de WebRTC: único puerto de medios publicado al host.
       - "8189:8189/udp"
@@ -85,3 +92,5 @@ networks:
 
 volumes:
   db-data:
+  # Grabaciones de los usuarios (MP4). Lo escribe mediamtx y lo administra el api.
+  recordings-data:

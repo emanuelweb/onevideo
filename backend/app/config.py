@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # Vacío (dev/tests): se exige que la IP del llamante sea privada/loopback.
     mediamtx_auth_secret: str = ""
     stream_public_url: str = "http://localhost:8889"
+    # Directorio donde MediaMTX escribe las grabaciones (volumen compartido con el api).
+    # En tests se sobreescribe a un tmp_path.
+    recordings_dir: str = "/recordings"
     usage_tracker_enabled: bool = True
     usage_tracker_interval_seconds: int = 30
     # Correos separados por comas habilitados para el bootstrap del panel de administración.

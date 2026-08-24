@@ -12,6 +12,7 @@ export interface PlanPublic {
   max_resolution: string;
   max_fps: number;
   monthly_hours: number | null;
+  max_recording_gb: number;
   features: string[];
 }
 
@@ -56,6 +57,7 @@ export interface Device {
   model: string | null;
   status: DeviceStatus;
   camera_on: boolean;
+  recording_on: boolean;
   last_seen_at: string | null;
   created_at: string;
   telemetry: DeviceTelemetry | null;
@@ -91,6 +93,29 @@ export type CommandType =
 export interface CommandResult {
   delivered: boolean;
   command_id: string;
+}
+
+// ---------- Grabación en la nube (docs/CONTRACT.md, sección Grabaciones) ----------
+
+export interface Recording {
+  /** filename en base64url sin padding; se usa como `rid` en las rutas. */
+  id: string;
+  filename: string;
+  started_at: string | null;
+  size_bytes: number;
+  in_progress: boolean;
+}
+
+export interface RecordingList {
+  items: Recording[];
+  /** Bytes usados por TODAS las grabaciones del usuario (límite por plan, no por device). */
+  used_bytes: number;
+  limit_bytes: number;
+}
+
+export interface DownloadToken {
+  url: string;
+  expires_at: string;
 }
 
 export interface Usage {

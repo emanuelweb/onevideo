@@ -11,4 +11,5 @@ class PlanPublic(BaseModel):
     max_resolution: str
     max_fps: int
     monthly_hours: int | None
+    max_recording_gb: int
     features: list[str]

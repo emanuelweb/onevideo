@@ -60,11 +60,37 @@ webrtcIPsFromInterfaces: no
 webrtcAdditionalHosts: [203.0.113.10]
 
 ###############################################
+# Grabación en la nube (defaults de todos los paths)
+###############################################
+
+# Claves verificadas contra la doc oficial (mediamtx.yml de referencia y
+# api/openapi.yaml del repo bluenviron/mediamtx). Aplican a todo path, incluidos
+# los path configs que el backend agrega en runtime por la API de control (:9997):
+#   - Activar:    POST   /v3/config/paths/add/live%2F<device_uuid>   {"record": true}
+#   - Ya existe:  PATCH  /v3/config/paths/patch/live%2F<device_uuid> {"record": true}
+#   - Desactivar: DELETE /v3/config/paths/delete/live%2F<device_uuid>
+# (el nombre del path va URL-encodeado: la barra como %2F).
+pathDefaults:
+  # Apagada por defecto; se enciende por dispositivo vía la API de control.
+  record: no
+  # Los archivos quedan en /recordings/live/<device_uuid>/<YYYY-MM-DD_HH-MM-SS-ffffff>.mp4
+  # (volumen recordings-data de docker-compose, compartido con el servicio api).
+  recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordFormat: fmp4
+  recordPartDuration: 1s
+  recordSegmentDuration: 1h
+  # IMPORTANTE: el default de MediaMTX es 1d y borraría las grabaciones solo.
+  # 0s = no borrar nunca; la limpieza la hace el usuario desde el dashboard.
+  recordDeleteAfter: 0s
+
+###############################################
 # Paths
 ###############################################
 
 # Solo se aceptan paths con la forma live/<uuid en minúsculas y con guiones>.
-# Cualquier otro path se rechaza (no hay comodín).
+# Cualquier otro path se rechaza (no hay comodín). Los path configs explícitos
+# `live/<uuid>` que agrega el backend para grabar tienen prioridad sobre este
+# regex y heredan el resto de valores de pathDefaults.
 paths:
   '~^live/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$':
     source: publisher

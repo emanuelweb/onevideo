@@ -2,6 +2,7 @@
 import asyncio
 import contextlib
 import logging
+import re
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -20,6 +21,30 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
+
+# El query param `token=` viaja en URLs que el access log de uvicorn escribiría
+# completas a stderr (y de ahí a `docker logs`): el JWT de descarga de grabaciones
+# (GET /download?token=) y el JWT de sesión del WebSocket de consola. Quien pueda
+# leer esos logs podría reutilizar los tokens dentro de su TTL, así que se
+# redactan antes de que el registro llegue a cualquier handler.
+TOKEN_QUERY_RE = re.compile(r"(token=)[^&\s\"']+")
+
+
+class RedactTokenQueryFilter(logging.Filter):
+    """Reemplaza el valor de `token=` por [REDACTADO] en el access log de uvicorn."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                TOKEN_QUERY_RE.sub(r"\1[REDACTADO]", arg) if isinstance(arg, str) else arg
+                for arg in record.args
+            )
+        if isinstance(record.msg, str) and "token=" in record.msg:
+            record.msg = TOKEN_QUERY_RE.sub(r"\1[REDACTADO]", record.msg)
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(RedactTokenQueryFilter())
 
 
 @contextlib.asynccontextmanager
