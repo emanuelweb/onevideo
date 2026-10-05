@@ -1,3 +1,4 @@
+import { QRCodeSVG } from "qrcode.react";
 import { Link } from "react-router-dom";
 import { Logo } from "../components/Logo";
 import { isAuthenticated } from "../lib/api";
@@ -53,6 +54,11 @@ export default function DownloadPage() {
             </a>
           </div>
           <p className="muted download-meta">Android 8.0 o superior · aprox. 50 MB</p>
+          <figure className="download-qr">
+            {/* Fondo blanco fijo: un QR claro sobre oscuro no lo leen todas las cámaras. */}
+            <QRCodeSVG value={APK_URL} size={184} level="M" marginSize={2} bgColor="#ffffff" fgColor="#0b0d14" />
+            <figcaption className="muted">¿Estás en el computador? Escanéalo con tu celular.</figcaption>
+          </figure>
         </section>
 
         <section className="card download-steps">

@@ -1591,3 +1591,6 @@ code {
 .download-meta { text-align: center; margin-top: 8px; font-size: 0.85rem; }
 .download-steps { max-width: 640px; margin: 32px auto 0; display: flex; flex-direction: column; gap: 12px; }
 .download-steps ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.download-qr { margin: 28px auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.download-qr svg { border-radius: 12px; }
+.download-qr figcaption { font-size: 0.85rem; text-align: center; }
