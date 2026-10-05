@@ -7,6 +7,7 @@ import AccountPage from "./pages/AccountPage";
 import AdminPage from "./pages/AdminPage";
 import DashboardPage from "./pages/DashboardPage";
 import DeviceDetailPage from "./pages/DeviceDetailPage";
+import DownloadPage from "./pages/DownloadPage";
 import LoginPage from "./pages/LoginPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import ObsGuidePage from "./pages/ObsGuidePage";
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/registro" element={<RegisterPage />} />
           <Route path="/precios" element={<PricingPage />} />
+          <Route path="/download" element={<DownloadPage />} />
           <Route
             path="/app"
             element={
